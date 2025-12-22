@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "id": "ej-1",
+    "name": "Example Json"
+  },
+  "structure": {
+    "1": {
+      "type": "Area",
+      "subtasks": {
+        "1.1": {
+          "type": "Component",
+          "subtasks": {
+            "1.1.1": {"type": "Job"},
+            "1.1.2": {"type": "Component", "subtasks": {}}
+          }
+        }
+      }
+    }
+  },
+  "task_list": {
+    "1": {
+      "name": "name",
+      "details": "description",
+      "estimation": "",
+      "tags": ["",""]
+    },
+    "1.1": {
+      "name": "name",
+      "details": "description",
+      "estimation": "",
+      "tags": ["",""]
+    },
+    "1.1.1": {
+      "name": "name",
+      "details": "description",
+      "estimation": "",
+      "tags": ["",""]
+    },
+    "1.1.2" : {
+      "name": "name",
+      "details": "description",
+      "estimation": "",
+      "tags": ["",""]
+    }
+  },
+  "time_log": [{
+    "start_timestamp": "iso-timestamp",
+    "end_timestamp": "iso-timestamp",
+    "notes": "",
+    "interruptions": "",
+    "interruption_minutes": 0,
+    "tasks": ["links to task_list"]
+  }],
+  "tags": ["",""]
+}
