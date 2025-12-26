@@ -118,17 +118,17 @@ Tree display format:
 ## Phase 4: Neovim UI Layer
 
 ### 4.1 Buffer Management
-- [ ] Create `ui/buffers.lua` - Buffer creation and management
-- [ ] `create_session_buffer(project, session_index)` - Open session in editable buffer
-- [ ] `create_task_buffer(project, task_id)` - Open task in editable buffer
-- [ ] `create_structure_buffer(project)` - Open tree view buffer
-- [ ] Auto-save on `:w` using BufWriteCmd autocmd
-- [ ] Auto-parse buffer content back to model on save
+- [x] Create `ui/buffers.lua` - Buffer creation and management
+- [x] `create_session_buffer(project, session_index)` - Open session in editable buffer
+- [x] `create_task_buffer(project, task_id)` - Open task in editable buffer
+- [x] `create_structure_buffer(project)` - Open tree view buffer
+- [x] Auto-save on `:w` using BufWriteCmd autocmd
+- [x] Auto-parse buffer content back to model on save
 
 ### 4.2 Tree View
-- [ ] Create `ui/tree.lua` - Tree view rendering and interaction
-- [ ] Display collapsible tree structure
-- [ ] Keybindings for tree manipulation:
+- [x] Create `ui/tree.lua` - Tree view rendering and interaction
+- [x] Display collapsible tree structure
+- [x] Keybindings for tree manipulation:
   - `a` - Add child node
   - `A` - Add sibling node
   - `d` - Delete node
@@ -137,17 +137,17 @@ Tree display format:
   - `zo/zc` - Expand/collapse
 
 ### 4.3 Tag Interface
-- [ ] Create `ui/tags.lua` - Tag management UI
-- [ ] `open_tag_picker(callback)` - Fuzzy picker for existing tags
-- [ ] `add_tag_prompt(task_id)` - Prompt to add new or existing tag
-- [ ] `show_tag_search()` - Filter tasks by selected tags
+- [x] Create `ui/tags.lua` - Tag management UI
+- [x] `open_tag_picker(callback)` - Fuzzy picker for existing tags
+- [x] `add_tag_prompt(task_id)` - Prompt to add new or existing tag
+- [x] `show_tag_search()` - Filter tasks by selected tags
 
 ### 4.4 Session Timer
-- [ ] Create `ui/timer.lua` - Time tracking UI
-- [ ] `:SamplannerStart` - Start new session
-- [ ] `:SamplannerStop` - Stop current session
-- [ ] `:SamplannerSession` - Open current session buffer
-- [ ] Status line integration showing elapsed time
+- [x] Create `ui/timer.lua` - Time tracking UI
+- [x] `:SamplannerStart` - Start new session
+- [x] `:SamplannerStop` - Stop current session
+- [x] `:SamplannerSession` - Open current session buffer
+- [x] Status line integration showing elapsed time
 
 ## Phase 5: Plugin Commands
 
