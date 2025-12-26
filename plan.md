@@ -152,22 +152,22 @@ Tree display format:
 ## Phase 5: Plugin Commands
 
 ### 5.1 Core Commands
-- [ ] `:Samplanner` - Open project picker or current project
-- [ ] `:SamplannerNew <name>` - Create new project
-- [ ] `:SamplannerLoad <name>` - Load existing project
-- [ ] `:SamplannerTree` - Open tree structure view
-- [ ] `:SamplannerTask <id>` - Open task by ID
-- [ ] `:SamplannerTags` - Open tag management
+- [x] `:Samplanner` - Open project picker or current project
+- [x] `:SamplannerNew <name>` - Create new project
+- [x] `:SamplannerLoad <name>` - Load existing project
+- [x] `:SamplannerTree` - Open tree structure view
+- [x] `:SamplannerTask <id>` - Open task by ID
+- [x] `:SamplannerTags` - Open tag management
 
 ### 5.2 Session Commands
-- [ ] `:SamplannerStart` - Start time tracking session
-- [ ] `:SamplannerStop` - Stop current session
-- [ ] `:SamplannerSession [index]` - Open session buffer
-- [ ] `:SamplannerSessions` - List all sessions
+- [x] `:SamplannerStart` - Start time tracking session
+- [x] `:SamplannerStop` - Stop current session
+- [x] `:SamplannerSession [index]` - Open session buffer
+- [x] `:SamplannerSessions` - List all sessions
 
 ### 5.3 Search Commands
-- [ ] `:SamplannerSearch <query>` - Search tasks by text
-- [ ] `:SamplannerByTag <tag>` - Filter tasks by tag
+- [x] `:SamplannerSearch <query>` - Search tasks by text
+- [x] `:SamplannerByTag <tag>` - Filter tasks by tag
 
 ## Implementation Order
 
