@@ -1,0 +1,11 @@
+return {
+  _all = {
+    coverage = false,
+    verbose = true,
+    lua = "luajit"
+  },
+  default = {
+    verbose = true,
+    ROOT = {"tests/"},
+  }
+}
