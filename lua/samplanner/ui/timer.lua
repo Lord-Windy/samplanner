@@ -305,6 +305,103 @@ function M.cleanup()
   stop_timer_loop()
 end
 
+-- Sessions list buffer state
+local sessions_list_state = {
+  buf = nil,
+  win = nil,
+  project = nil,
+  line_to_index = {},  -- Maps line number to session index
+}
+
+-- Open sessions list in a buffer
+-- @param project: Project - The project
+function M.open_sessions_list(project)
+  local sessions = project.time_log or {}
+  if #sessions == 0 then
+    vim.notify("No sessions in project", vim.log.levels.WARN)
+    return
+  end
+
+  sessions_list_state.project = project
+  sessions_list_state.line_to_index = {}
+
+  -- Create buffer
+  local buf = vim.api.nvim_create_buf(false, true)
+  sessions_list_state.buf = buf
+
+  vim.api.nvim_buf_set_option(buf, 'buftype', 'nofile')
+  vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
+  vim.api.nvim_buf_set_option(buf, 'swapfile', false)
+  vim.api.nvim_buf_set_option(buf, 'filetype', 'samplanner_sessions')
+
+  -- Build lines in descending order (most recent first)
+  local lines = {}
+  table.insert(lines, "# Sessions - " .. project.project_info.name)
+  table.insert(lines, "")
+  table.insert(lines, "Press <Enter> to open session notes, q to close")
+  table.insert(lines, "")
+
+  local header_lines = #lines
+
+  -- Iterate in reverse order (descending)
+  for i = #sessions, 1, -1 do
+    local session = sessions[i]
+    local start_display = session.start_timestamp:gsub("T", " "):gsub("Z", ""):sub(1, 16)
+    local end_display = session.end_timestamp ~= ""
+      and session.end_timestamp:gsub("T", " "):gsub("Z", ""):sub(1, 16)
+      or "(active)"
+
+    local duration = ""
+    if session.end_timestamp ~= "" then
+      local start_ts = parse_iso_timestamp(session.start_timestamp)
+      local end_ts = parse_iso_timestamp(session.end_timestamp)
+      duration = " [" .. format_duration(end_ts - start_ts) .. "]"
+    end
+
+    local line = string.format("#%d: %s to %s%s", i, start_display, end_display, duration)
+    table.insert(lines, line)
+    sessions_list_state.line_to_index[header_lines + (#sessions - i + 1)] = i
+  end
+
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_buf_set_option(buf, 'modifiable', false)
+
+  -- Set up keybindings
+  local opts = { buffer = buf, silent = true }
+  vim.keymap.set('n', '<CR>', function()
+    local line = vim.api.nvim_win_get_cursor(0)[1]
+    local session_index = sessions_list_state.line_to_index[line]
+    if session_index then
+      -- Close the sessions list window
+      if sessions_list_state.win and vim.api.nvim_win_is_valid(sessions_list_state.win) then
+        vim.api.nvim_win_close(sessions_list_state.win, true)
+      end
+      -- Open the session buffer
+      buffers.create_session_buffer(sessions_list_state.project, session_index)
+    end
+  end, opts)
+
+  vim.keymap.set('n', 'q', function()
+    if sessions_list_state.win and vim.api.nvim_win_is_valid(sessions_list_state.win) then
+      vim.api.nvim_win_close(sessions_list_state.win, true)
+    end
+  end, opts)
+
+  -- Open in current window
+  vim.api.nvim_set_current_buf(buf)
+  sessions_list_state.win = vim.api.nvim_get_current_win()
+
+  -- Window options
+  vim.api.nvim_win_set_option(sessions_list_state.win, 'number', false)
+  vim.api.nvim_win_set_option(sessions_list_state.win, 'relativenumber', false)
+  vim.api.nvim_win_set_option(sessions_list_state.win, 'cursorline', true)
+
+  -- Position cursor on first session line
+  if #sessions > 0 then
+    vim.api.nvim_win_set_cursor(sessions_list_state.win, { header_lines + 1, 0 })
+  end
+end
+
 -- Quick session menu
 -- @param project: Project - The project
 function M.show_menu(project)

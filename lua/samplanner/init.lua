@@ -255,7 +255,7 @@ function M.list_sessions()
   end
 
   local timer = require('samplanner.ui.timer')
-  timer.open_session_by_index(M.state.project, nil)
+  timer.open_sessions_list(M.state.project)
 end
 
 --------------------------------------------------------------------------------
