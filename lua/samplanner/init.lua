@@ -1,7 +1,7 @@
 local M = {}
 
 local defaults = {
-  filepath = "/home/sam/Dropbox/planning",
+  filepath = vim.fn.expand("~") .. "/Dropbox/planning",
 }
 
 -- Plugin state

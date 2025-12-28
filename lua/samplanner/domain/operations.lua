@@ -7,7 +7,7 @@ local M = {}
 -- Default storage directory (can be overridden via config)
 local function get_storage_dir()
   local samplanner = require('samplanner')
-  return samplanner.config and samplanner.config.filepath or "/home/sam/Dropbox/planning"
+  return samplanner.config and samplanner.config.filepath or vim.fn.expand("~") .. "/Dropbox/planning"
 end
 
 --------------------------------------------------------------------------------
