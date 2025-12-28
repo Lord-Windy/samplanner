@@ -65,6 +65,7 @@ function M.create_task_buffer(project, task_id, opts)
   end
 
   local buf = create_scratch_buffer(buf_name, "samplanner_task")
+  vim.api.nvim_buf_set_option(buf, 'buflisted', true)
   local text = task_format.task_to_text(task)
   local lines = vim.split(text, "\n")
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -150,6 +151,7 @@ function M.create_session_buffer(project, session_index, opts)
   end
 
   local buf = create_scratch_buffer(buf_name, "samplanner_session")
+  vim.api.nvim_buf_set_option(buf, 'buflisted', true)
   local text = session_format.session_to_text(session)
   local lines = vim.split(text, "\n")
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
