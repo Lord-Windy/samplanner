@@ -30,19 +30,31 @@ require('samplanner').setup({
 | `:SamplannerReload` | Reload current project from disk |
 
 #### `:Samplanner`
-Opens the main Samplanner interface. If a project is already loaded, it displays the tree view. Otherwise, it shows a picker to select from available projects.
+
+Opens the main Samplanner interface. If a project is already loaded, it
+displays the tree view. Otherwise, it shows a picker to select from
+available projects.
 
 #### `:SamplannerNew [name]`
-Creates a new project. If a name is provided as an argument, creates the project immediately. Otherwise, prompts for a project name via an input dialog.
+
+Creates a new project. If a name is provided as an argument, creates the
+project immediately. Otherwise, prompts for a project name via an input
+dialog.
 
 #### `:SamplannerLoad [name]`
-Loads an existing project from disk. Supports autocomplete for project names. If no name is provided, shows a picker with all available projects.
+
+Loads an existing project from disk. Supports autocomplete for project
+names. If no name is provided, shows a picker with all available projects.
 
 #### `:SamplannerTree`
-Opens a vertical split displaying the hierarchical structure of the current project. Requires a project to be loaded first.
+
+Opens a vertical split displaying the hierarchical structure of the
+current project. Requires a project to be loaded first.
 
 #### `:SamplannerReload`
-Refreshes the in-memory project state from the saved file on disk. Useful when the project file has been modified externally.
+
+Refreshes the in-memory project state from the saved file on disk. Useful
+when the project file has been modified externally.
 
 ---
 
@@ -54,10 +66,15 @@ Refreshes the in-memory project state from the saved file on disk. Useful when t
 | `:SamplannerTags` | Open tag management interface |
 
 #### `:SamplannerTask [task_id]`
-Opens a task in a buffer for viewing and editing. Supports autocomplete for task IDs. If no ID is provided, shows a picker with all tasks in the project.
+
+Opens a task in a buffer for viewing and editing. Supports autocomplete
+for task IDs. If no ID is provided, shows a picker with all tasks in the
+project.
 
 #### `:SamplannerTags`
-Opens the tag management UI for creating, editing, and managing task tags within the current project.
+
+Opens the tag management UI for creating, editing, and managing task tags
+within the current project.
 
 ---
 
@@ -71,16 +88,25 @@ Opens the tag management UI for creating, editing, and managing task tags within
 | `:SamplannerSessions` | List all sessions |
 
 #### `:SamplannerStart`
-Begins a new time tracking session by creating a time log entry with the current timestamp. Use this when you start working on your project.
+
+Begins a new time tracking session by creating a time log entry with the
+current timestamp. Use this when you start working on your project.
 
 #### `:SamplannerStop`
-Closes the active time tracking session by setting its end timestamp. Use this when you finish working.
+
+Closes the active time tracking session by setting its end timestamp. Use
+this when you finish working.
 
 #### `:SamplannerSession [index]`
-Opens a specific session buffer for viewing. If an index is provided, opens that session directly. Otherwise, opens the active session or shows a picker if no session is active.
+
+Opens a specific session buffer for viewing. If an index is provided,
+opens that session directly. Otherwise, opens the active session or shows
+a picker if no session is active.
 
 #### `:SamplannerSessions`
-Opens a session picker to browse and select from all recorded time tracking sessions.
+
+Opens a session picker to browse and select from all recorded time
+tracking sessions.
 
 ---
 
@@ -92,16 +118,22 @@ Opens a session picker to browse and select from all recorded time tracking sess
 | `:SamplannerByTag [tag]` | Filter tasks by tag |
 
 #### `:SamplannerSearch [query]`
-Searches through task IDs, names, and details for matching text. Shows results in a picker. If no query is provided, prompts for a search term.
+
+Searches through task IDs, names, and details for matching text. Shows
+results in a picker. If no query is provided, prompts for a search term.
 
 #### `:SamplannerByTag [tag]`
-Filters and displays tasks that have the specified tag. Supports autocomplete for existing tags in the project. If no tag is provided, shows a tag picker.
+
+Filters and displays tasks that have the specified tag. Supports
+autocomplete for existing tags in the project. If no tag is provided,
+shows a tag picker.
 
 ---
 
 ## Project Structure
 
-Projects are stored as JSON files in the configured `filepath` directory. Each project contains:
+Projects are stored as JSON files in the configured `filepath` directory.
+Each project contains:
 
 - **Tree Structure**: Hierarchical organization of milestones, features, and tasks
 - **Tasks**: Individual work items with descriptions, estimations, and tags
@@ -110,4 +142,4 @@ Projects are stored as JSON files in the configured `filepath` directory. Each p
 
 ## License
 
-MIT
+Apache 2.0
