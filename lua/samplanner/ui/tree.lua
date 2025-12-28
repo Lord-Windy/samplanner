@@ -205,7 +205,7 @@ function M.open_task()
     return
   end
 
-  buffers.create_task_buffer(M.state.project, node_id, { split = "vertical" })
+  buffers.create_task_buffer(M.state.project, node_id)
 end
 
 -- Add child node

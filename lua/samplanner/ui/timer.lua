@@ -334,11 +334,11 @@ function M.show_menu(project)
     elseif choice.action == "stop" then
       M.stop(project)
     elseif choice.action == "open" then
-      M.open_session(project, { split = "vertical" })
+      M.open_session(project)
     elseif choice.action == "add_task" then
       M.add_task_to_session(project)
     elseif choice.action == "list" then
-      M.open_session_by_index(project, nil, { split = "vertical" })
+      M.open_session_by_index(project, nil)
     end
   end)
 end

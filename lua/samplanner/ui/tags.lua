@@ -226,7 +226,7 @@ function M.show_tag_search(project, opts)
 
       -- Open selected task
       local buffers = require('samplanner.ui.buffers')
-      buffers.create_task_buffer(project, selected.id, { split = "vertical" })
+      buffers.create_task_buffer(project, selected.id)
     end)
   end, { multi = opts.multi, prompt = "Search by tag:" })
 end
@@ -277,7 +277,7 @@ function M.show_tag_overview(project)
 
       -- Open selected task
       local buffers = require('samplanner.ui.buffers')
-      buffers.create_task_buffer(project, selected.id, { split = "vertical" })
+      buffers.create_task_buffer(project, selected.id)
     end)
   end)
 end

@@ -26,7 +26,7 @@ function M.open_picker()
 
   -- If project is loaded, open tree view
   if M.state.project then
-    tree.open(M.state.project, { split = "vertical", width = 50 })
+    tree.open(M.state.project)
     return
   end
 
@@ -56,7 +56,7 @@ function M.open_picker()
     timer.sync_with_project(project)
 
     vim.notify("Loaded project: " .. choice, vim.log.levels.INFO)
-    tree.open(project, { split = "vertical", width = 50 })
+    tree.open(project)
   end)
 end
 
@@ -86,7 +86,7 @@ function M.create_project(name)
 
   M.state.project = project
   vim.notify("Created project: " .. name, vim.log.levels.INFO)
-  tree.open(project, { split = "vertical", width = 50 })
+  tree.open(project)
 end
 
 -- Load existing project
@@ -125,7 +125,7 @@ function M.load_project(name)
   M.state.project = project
   timer.sync_with_project(project)
   vim.notify("Loaded project: " .. name, vim.log.levels.INFO)
-  tree.open(project, { split = "vertical", width = 50 })
+  tree.open(project)
 end
 
 -- Open tree structure view
@@ -136,7 +136,7 @@ function M.open_tree()
   end
 
   local tree = require('samplanner.ui.tree')
-  tree.open(M.state.project, { split = "vertical", width = 50 })
+  tree.open(M.state.project)
 end
 
 -- Open task by ID
@@ -173,13 +173,13 @@ function M.open_task(task_id)
       end,
     }, function(choice)
       if choice then
-        buffers.create_task_buffer(M.state.project, choice.id, { split = "vertical" })
+        buffers.create_task_buffer(M.state.project, choice.id)
       end
     end)
     return
   end
 
-  local _, err = buffers.create_task_buffer(M.state.project, task_id, { split = "vertical" })
+  local _, err = buffers.create_task_buffer(M.state.project, task_id)
   if err then
     vim.notify(err, vim.log.levels.ERROR)
   end
@@ -233,16 +233,16 @@ function M.open_session(index)
   local timer = require('samplanner.ui.timer')
 
   if index then
-    timer.open_session_by_index(M.state.project, tonumber(index), { split = "vertical" })
+    timer.open_session_by_index(M.state.project, tonumber(index))
   else
     -- Try to open active session, otherwise show picker
     local operations = require('samplanner.domain.operations')
     local active_index, _ = operations.get_active_session(M.state.project)
 
     if active_index then
-      timer.open_session(M.state.project, { split = "vertical" })
+      timer.open_session(M.state.project)
     else
-      timer.open_session_by_index(M.state.project, nil, { split = "vertical" })
+      timer.open_session_by_index(M.state.project, nil)
     end
   end
 end
@@ -255,7 +255,7 @@ function M.list_sessions()
   end
 
   local timer = require('samplanner.ui.timer')
-  timer.open_session_by_index(M.state.project, nil, { split = "vertical" })
+  timer.open_session_by_index(M.state.project, nil)
 end
 
 --------------------------------------------------------------------------------
@@ -317,7 +317,7 @@ function M.search_tasks(query)
     end,
   }, function(choice)
     if choice then
-      buffers.create_task_buffer(M.state.project, choice.id, { split = "vertical" })
+      buffers.create_task_buffer(M.state.project, choice.id)
     end
   end)
 end
@@ -353,7 +353,7 @@ function M.search_by_tag(tag)
     end,
   }, function(choice)
     if choice then
-      buffers.create_task_buffer(M.state.project, choice.id, { split = "vertical" })
+      buffers.create_task_buffer(M.state.project, choice.id)
     end
   end)
 end
