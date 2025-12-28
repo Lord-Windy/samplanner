@@ -9,11 +9,6 @@ Add the plugin to your Neovim configuration and call the setup function:
 ```lua
 require('samplanner').setup({
   filepath = "/path/to/your/projects",  -- Where projects are stored
-  llm = {
-    provider = "anthropic",              -- "anthropic" or "openrouter"
-    model = "claude-sonnet-4-20250514",
-    max_tokens = 1024,
-  }
 })
 ```
 

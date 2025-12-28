@@ -99,23 +99,7 @@ Tree display format:
 - [x] `structure_to_text(structure)` - Render tree as indented text
 - [x] `text_to_structure(text)` - Parse indented text back to structure
 
-## Phase 3: LLM Port (API-Agnostic)
-
-### 3.1 LLM Interface
-- [x] Create `ports/llm.lua` - Abstract LLM interface
-- [x] `parse_text(text, target_type)` - Use LLM to parse ambiguous user text
-- [x] `suggest_tags(task)` - Auto-suggest tags based on task content
-
-### 3.2 LLM Implementations
-- [x] Create `ports/anthropic_llm.lua` - Anthropic Claude implementation
-- [x] Create `ports/openrouter_llm.lua` - OpenRouter implementation
-
-### 3.3 Configuration
-- [x] Add LLM provider selection to config
-- [x] Add API key configuration
-- [x] Add model selection
-
-## Phase 4: Neovim UI Layer
+## Phase 3: Neovim UI Layer
 
 ### 4.1 Buffer Management
 - [x] Create `ui/buffers.lua` - Buffer creation and management
@@ -177,8 +161,7 @@ Tree display format:
 4. **Phase 1.4-1.5** - Time logs and tags
 5. **Phase 4.2** - Tree view UI
 6. **Phase 4.3-4.4** - Tag and timer UI
-7. **Phase 5** - Plugin commands
-8. **Phase 3** - LLM integration (optional enhancement)
+7. **Phase 4** - Plugin commands
 
 ## File Structure Target
 
@@ -190,9 +173,7 @@ lua/samplanner/
 │   └── operations.lua       # Core business logic
 ├── ports/
 │   ├── storage.lua          # Storage interface (exists)
-│   ├── file_storage.lua     # File implementation (exists)
-│   ├── llm.lua              # LLM interface
-│   └── anthropic_llm.lua    # Anthropic implementation
+│   └── file_storage.lua     # File implementation (exists)
 ├── formats/
 │   ├── session.lua          # Session text format
 │   ├── task.lua             # Task text format
@@ -206,7 +187,6 @@ lua/samplanner/
 
 ## Notes
 
-- Start with deterministic parsing for text formats; use LLM only as fallback for ambiguous cases
 - All operations should save automatically after modification
 - Consider telescope.nvim integration for fuzzy finding
 - Tree view could use nvim-tree style folding
