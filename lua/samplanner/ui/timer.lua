@@ -372,19 +372,14 @@ function M.open_sessions_list(project)
     local line = vim.api.nvim_win_get_cursor(0)[1]
     local session_index = sessions_list_state.line_to_index[line]
     if session_index then
-      -- Close the sessions list window
-      if sessions_list_state.win and vim.api.nvim_win_is_valid(sessions_list_state.win) then
-        vim.api.nvim_win_close(sessions_list_state.win, true)
-      end
-      -- Open the session buffer
+      -- Open the session buffer (sessions list buffer will be wiped automatically)
       buffers.create_session_buffer(sessions_list_state.project, session_index)
     end
   end, opts)
 
   vim.keymap.set('n', 'q', function()
-    if sessions_list_state.win and vim.api.nvim_win_is_valid(sessions_list_state.win) then
-      vim.api.nvim_win_close(sessions_list_state.win, true)
-    end
+    -- Switch to previous buffer (sessions list will be wiped automatically)
+    vim.cmd('bprevious')
   end, opts)
 
   -- Open in current window
