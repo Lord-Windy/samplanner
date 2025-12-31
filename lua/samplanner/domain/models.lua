@@ -122,10 +122,50 @@ function M.JobDetails:is_empty()
     and #self.validation_test_plan == 0
 end
 
+-- ComponentDetails model (structured details for Component type tasks)
+-- JSON: {
+--   "purpose": "",
+--   "capabilities": [],
+--   "acceptance_criteria": [],
+--   "architecture_design": [],
+--   "interfaces_integration": [],
+--   "quality_attributes": [],
+--   "related_components": [],
+--   "other": ""
+-- }
+M.ComponentDetails = {}
+M.ComponentDetails.__index = M.ComponentDetails
+
+function M.ComponentDetails.new(data)
+  data = data or {}
+  local self = setmetatable({}, M.ComponentDetails)
+  self.purpose = data.purpose or ""
+  self.capabilities = data.capabilities or {}
+  self.acceptance_criteria = data.acceptance_criteria or {}
+  self.architecture_design = data.architecture_design or {}
+  self.interfaces_integration = data.interfaces_integration or {}
+  self.quality_attributes = data.quality_attributes or {}
+  self.related_components = data.related_components or {}
+  self.other = data.other or ""
+  return self
+end
+
+-- Check if component details has any meaningful data
+function M.ComponentDetails:is_empty()
+  return self.purpose == ""
+    and #self.capabilities == 0
+    and #self.acceptance_criteria == 0
+    and #self.architecture_design == 0
+    and #self.interfaces_integration == 0
+    and #self.quality_attributes == 0
+    and #self.related_components == 0
+    and self.other == ""
+end
+
 -- Task model
 -- JSON: {
 --   "name": "name",
---   "details": "description" or {...} (JobDetails for Job type),
+--   "details": "description" or {...} (JobDetails for Job type, ComponentDetails for Component type),
 --   "estimation": {...} or nil,
 --   "notes": "migrated old estimation or other notes",
 --   "tags": ["",""]
@@ -137,11 +177,25 @@ function M.Task.new(id, name, details, estimation, tags, notes)
   local self = setmetatable({}, M.Task)
   self.id = id or ""
   self.name = name or ""
-  -- details can be string (for Area/Component) or JobDetails (for Job)
+  -- details can be string (for Area) or JobDetails (for Job) or ComponentDetails (for Component)
   if details and type(details) == "table" and getmetatable(details) == M.JobDetails then
     self.details = details
+  elseif details and type(details) == "table" and getmetatable(details) == M.ComponentDetails then
+    self.details = details
   elseif details and type(details) == "table" then
-    self.details = M.JobDetails.new(details)
+    -- Try to determine which type of details this should be
+    -- Check for JobDetails fields
+    local has_job_fields = details.context_why ~= nil or details.outcome_dod ~= nil or details.approach ~= nil
+    -- Check for ComponentDetails fields
+    local has_component_fields = details.purpose ~= nil or details.capabilities ~= nil or details.acceptance_criteria ~= nil
+
+    if has_job_fields then
+      self.details = M.JobDetails.new(details)
+    elseif has_component_fields then
+      self.details = M.ComponentDetails.new(details)
+    else
+      self.details = details or ""
+    end
   else
     self.details = details or ""
   end
@@ -296,13 +350,53 @@ local function validate_and_migrate_details(task_data, node_type, notes)
 
     -- Default: empty JobDetails
     return M.JobDetails.new(), notes
+  elseif node_type == "Component" then
+    -- If node type is Component, details should be a ComponentDetails structure
+    -- If details doesn't exist, create empty ComponentDetails
+    if not details then
+      return M.ComponentDetails.new(), notes
+    end
+
+    -- If details is a table with proper ComponentDetails structure, use it
+    if type(details) == "table" then
+      -- Check if it conforms to ComponentDetails structure
+      local has_component_details_fields = details.purpose ~= nil
+        or details.capabilities ~= nil
+        or details.acceptance_criteria ~= nil
+
+      if has_component_details_fields then
+        return M.ComponentDetails.new(details), notes
+      else
+        -- Table but not conforming structure - migrate to notes
+        local detail_str = vim.inspect(details)
+        if notes ~= "" then
+          notes = "Migrated details:\n" .. detail_str .. "\n\n" .. notes
+        else
+          notes = "Migrated details:\n" .. detail_str
+        end
+        return M.ComponentDetails.new(), notes
+      end
+    end
+
+    -- If details is a string (old format), migrate to notes
+    if type(details) == "string" and details ~= "" then
+      if notes ~= "" then
+        notes = "Migrated details:\n" .. details .. "\n\n" .. notes
+      else
+        notes = "Migrated details:\n" .. details
+      end
+      return M.ComponentDetails.new(), notes
+    end
+
+    -- Default: empty ComponentDetails
+    return M.ComponentDetails.new(), notes
   else
-    -- For Area and Component, details should be a string
+    -- For Area, details should be a string
     if not details then
       return "", notes
     end
 
-    -- If details is a table (shouldn't be for Area/Component), migrate to notes
+    -- If details is a table (shouldn't be for Area), migrate to notes
     if type(details) == "table" then
       local detail_str = vim.inspect(details)
       if notes ~= "" then

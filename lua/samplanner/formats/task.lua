@@ -493,6 +493,228 @@ local function text_to_job_details(text)
   return models.JobDetails.new(jd)
 end
 
+-- Convert ComponentDetails to text format
+local function component_details_to_text(component_details)
+  local lines = {}
+  local cd = component_details or models.ComponentDetails.new()
+
+  -- Purpose / What It Is section
+  table.insert(lines, "Purpose / What It Is")
+  if cd.purpose and cd.purpose ~= "" then
+    table.insert(lines, cd.purpose)
+  else
+    table.insert(lines, "")
+  end
+  table.insert(lines, "")
+
+  -- Capabilities / Features section
+  table.insert(lines, "Capabilities / Features")
+  if #cd.capabilities > 0 then
+    for _, item in ipairs(cd.capabilities) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Acceptance Criteria section
+  table.insert(lines, "Acceptance Criteria")
+  if #cd.acceptance_criteria > 0 then
+    for _, item in ipairs(cd.acceptance_criteria) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Architecture / Design section
+  table.insert(lines, "Architecture / Design")
+  if #cd.architecture_design > 0 then
+    for _, item in ipairs(cd.architecture_design) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Interfaces / Integration Points section
+  table.insert(lines, "Interfaces / Integration Points")
+  if #cd.interfaces_integration > 0 then
+    for _, item in ipairs(cd.interfaces_integration) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Quality Attributes section
+  table.insert(lines, "Quality Attributes")
+  if #cd.quality_attributes > 0 then
+    for _, item in ipairs(cd.quality_attributes) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Related Components section
+  table.insert(lines, "Related Components")
+  if #cd.related_components > 0 then
+    for _, item in ipairs(cd.related_components) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Other section
+  table.insert(lines, "Other")
+  if cd.other and cd.other ~= "" then
+    table.insert(lines, cd.other)
+  else
+    table.insert(lines, "")
+  end
+
+  return table.concat(lines, "\n")
+end
+
+-- Parse ComponentDetails from text
+local function text_to_component_details(text)
+  local cd = {
+    purpose = "",
+    capabilities = {},
+    acceptance_criteria = {},
+    architecture_design = {},
+    interfaces_integration = {},
+    quality_attributes = {},
+    related_components = {},
+    other = "",
+  }
+
+  local current_section = nil
+  local purpose_lines = {}
+  local other_lines = {}
+
+  for line in text:gmatch("[^\r\n]*") do
+    -- Check section headers
+    if line:match("^Purpose / What It Is$") then
+      current_section = "purpose"
+      purpose_lines = {}
+    elseif line:match("^Capabilities / Features$") then
+      -- Save purpose before switching
+      if current_section == "purpose" and #purpose_lines > 0 then
+        -- Remove trailing empty lines
+        while #purpose_lines > 0 and purpose_lines[#purpose_lines] == "" do
+          table.remove(purpose_lines)
+        end
+        cd.purpose = table.concat(purpose_lines, "\n")
+      end
+      current_section = "capabilities"
+    elseif line:match("^Acceptance Criteria$") then
+      current_section = "acceptance_criteria"
+    elseif line:match("^Architecture / Design$") then
+      current_section = "architecture"
+    elseif line:match("^Interfaces / Integration Points$") then
+      current_section = "interfaces"
+    elseif line:match("^Quality Attributes$") then
+      current_section = "quality_attributes"
+    elseif line:match("^Related Components$") then
+      current_section = "related_components"
+    elseif line:match("^Other$") then
+      -- Save other before switching
+      if current_section == "other" and #other_lines > 0 then
+        while #other_lines > 0 and other_lines[#other_lines] == "" do
+          table.remove(other_lines)
+        end
+        cd.other = table.concat(other_lines, "\n")
+      end
+      current_section = "other"
+      other_lines = {}
+
+    -- Purpose section content (capture everything until next section)
+    elseif current_section == "purpose" then
+      if line ~= "" then
+        table.insert(purpose_lines, line)
+      elseif #purpose_lines > 0 then
+        table.insert(purpose_lines, "")
+      end
+
+    -- Capabilities section content
+    elseif current_section == "capabilities" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(cd.capabilities, item)
+      end
+
+    -- Acceptance Criteria section content
+    elseif current_section == "acceptance_criteria" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(cd.acceptance_criteria, item)
+      end
+
+    -- Architecture section content
+    elseif current_section == "architecture" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(cd.architecture_design, item)
+      end
+
+    -- Interfaces section content
+    elseif current_section == "interfaces" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(cd.interfaces_integration, item)
+      end
+
+    -- Quality Attributes section content
+    elseif current_section == "quality_attributes" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(cd.quality_attributes, item)
+      end
+
+    -- Related Components section content
+    elseif current_section == "related_components" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(cd.related_components, item)
+      end
+
+    -- Other section content (capture everything)
+    elseif current_section == "other" then
+      if line ~= "" then
+        table.insert(other_lines, line)
+      elseif #other_lines > 0 then
+        table.insert(other_lines, "")
+      end
+    end
+  end
+
+  -- Handle final sections
+  if current_section == "purpose" and #purpose_lines > 0 then
+    while #purpose_lines > 0 and purpose_lines[#purpose_lines] == "" do
+      table.remove(purpose_lines)
+    end
+    cd.purpose = vim.trim(table.concat(purpose_lines, "\n"))
+  end
+
+  if current_section == "other" and #other_lines > 0 then
+    while #other_lines > 0 and other_lines[#other_lines] == "" do
+      table.remove(other_lines)
+    end
+    cd.other = vim.trim(table.concat(other_lines, "\n"))
+  end
+
+  return models.ComponentDetails.new(cd)
+end
+
 -- Convert Task to editable text format
 -- @param task: Task - The task to convert
 -- @param node_type: string|nil - "Area", "Component", or "Job" (nil shows no estimation)
@@ -517,8 +739,18 @@ function M.task_to_text(task, node_type)
         table.insert(lines, task.details)
       end
     end
+  elseif node_type == "Component" then
+    -- For Components, use structured ComponentDetails format
+    if type(task.details) == "table" then
+      table.insert(lines, component_details_to_text(task.details))
+    else
+      -- If somehow still a string, show it (shouldn't happen with migration)
+      if task.details and task.details ~= "" then
+        table.insert(lines, task.details)
+      end
+    end
   else
-    -- For Area and Component, show as plain text
+    -- For Area, show as plain text
     if task.details and task.details ~= "" then
       table.insert(lines, task.details)
     end
@@ -578,6 +810,8 @@ function M.text_to_task(text, node_type)
       if current_section == "details" then
         if node_type == "Job" then
           details = text_to_job_details(table.concat(section_content, "\n"))
+        elseif node_type == "Component" then
+          details = text_to_component_details(table.concat(section_content, "\n"))
         else
           details = table.concat(section_content, "\n")
         end
@@ -589,6 +823,8 @@ function M.text_to_task(text, node_type)
       if current_section == "details" then
         if node_type == "Job" then
           details = text_to_job_details(table.concat(section_content, "\n"))
+        elseif node_type == "Component" then
+          details = text_to_component_details(table.concat(section_content, "\n"))
         else
           details = table.concat(section_content, "\n")
         end
@@ -605,6 +841,8 @@ function M.text_to_task(text, node_type)
       if current_section == "details" then
         if node_type == "Job" then
           details = text_to_job_details(table.concat(section_content, "\n"))
+        elseif node_type == "Component" then
+          details = text_to_component_details(table.concat(section_content, "\n"))
         else
           details = table.concat(section_content, "\n")
         end
@@ -650,6 +888,8 @@ function M.text_to_task(text, node_type)
   if current_section == "details" then
     if node_type == "Job" then
       details = text_to_job_details(table.concat(section_content, "\n"))
+    elseif node_type == "Component" then
+      details = text_to_component_details(table.concat(section_content, "\n"))
     else
       details = table.concat(section_content, "\n")
     end

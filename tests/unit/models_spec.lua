@@ -336,12 +336,11 @@ describe("Project", function()
     assert.is_true(project.task_list["1"].details:is_empty())
   end)
 
-  it("should keep string details for Area and Component type tasks", function()
+  it("should keep string details for Area type tasks", function()
     local data = {
       project_info = { id = "proj-1", name = "Test" },
       structure = {
         ["1"] = { type = "Area", subtasks = {} },
-        ["2"] = { type = "Component", subtasks = {} }
       },
       task_list = {
         ["1"] = {
@@ -349,7 +348,24 @@ describe("Project", function()
           details = "Area details",
           tags = {}
         },
-        ["2"] = {
+      },
+      time_log = {},
+      tags = {}
+    }
+
+    local project = models.Project.from_table(data)
+    -- String details should be preserved for Area
+    assert.are.equal("Area details", project.task_list["1"].details)
+  end)
+
+  it("should migrate string details to notes for Component type tasks", function()
+    local data = {
+      project_info = { id = "proj-1", name = "Test" },
+      structure = {
+        ["1"] = { type = "Component", subtasks = {} }
+      },
+      task_list = {
+        ["1"] = {
           name = "Component Task",
           details = "Component details",
           tags = {}
@@ -360,9 +376,44 @@ describe("Project", function()
     }
 
     local project = models.Project.from_table(data)
-    -- String details should be preserved for Area/Component
-    assert.are.equal("Area details", project.task_list["1"].details)
-    assert.are.equal("Component details", project.task_list["2"].details)
+    -- String details should be migrated to notes for Component
+    assert.are.equal("table", type(project.task_list["1"].details))
+    assert.is_true(getmetatable(project.task_list["1"].details) == models.ComponentDetails)
+    assert.are.equal("Migrated details:\nComponent details", project.task_list["1"].notes)
+  end)
+
+  it("should preserve proper ComponentDetails for Component type tasks", function()
+    local data = {
+      project_info = { id = "proj-1", name = "Test" },
+      structure = {
+        ["1"] = { type = "Component", subtasks = {} }
+      },
+      task_list = {
+        ["1"] = {
+          name = "Component Task",
+          details = {
+            purpose = "Test purpose",
+            capabilities = {"Feature 1", "Feature 2"},
+            acceptance_criteria = {"Criteria 1"},
+            architecture_design = {"Design 1"},
+            interfaces_integration = {"Interface 1"},
+            quality_attributes = {"Fast"},
+            related_components = {"Component A"},
+            other = "Other notes"
+          },
+          tags = {}
+        }
+      },
+      time_log = {},
+      tags = {}
+    }
+
+    local project = models.Project.from_table(data)
+    local details = project.task_list["1"].details
+    assert.is_true(getmetatable(details) == models.ComponentDetails)
+    assert.are.equal("Test purpose", details.purpose)
+    assert.are.same({"Feature 1", "Feature 2"}, details.capabilities)
+    assert.are.same({"Criteria 1"}, details.acceptance_criteria)
   end)
 end)
 
@@ -404,5 +455,48 @@ describe("JobDetails", function()
 
     local jd2 = models.JobDetails.new({ context_why = "Not empty" })
     assert.is_false(jd2:is_empty())
+  end)
+end)
+
+describe("ComponentDetails", function()
+  it("should create a new ComponentDetails instance", function()
+    local cd = models.ComponentDetails.new({
+      purpose = "Test purpose",
+      capabilities = {"Feature 1", "Feature 2"},
+      acceptance_criteria = {"Criteria 1", "Criteria 2"},
+      architecture_design = {"Design 1"},
+      interfaces_integration = {"Interface 1", "Interface 2"},
+      quality_attributes = {"Fast", "Reliable"},
+      related_components = {"Component A", "Component B"},
+      other = "Other notes"
+    })
+    assert.are.equal("Test purpose", cd.purpose)
+    assert.are.same({"Feature 1", "Feature 2"}, cd.capabilities)
+    assert.are.same({"Criteria 1", "Criteria 2"}, cd.acceptance_criteria)
+    assert.are.same({"Design 1"}, cd.architecture_design)
+    assert.are.same({"Interface 1", "Interface 2"}, cd.interfaces_integration)
+    assert.are.same({"Fast", "Reliable"}, cd.quality_attributes)
+    assert.are.same({"Component A", "Component B"}, cd.related_components)
+    assert.are.equal("Other notes", cd.other)
+  end)
+
+  it("should use defaults for missing parameters", function()
+    local cd = models.ComponentDetails.new()
+    assert.are.equal("", cd.purpose)
+    assert.are.same({}, cd.capabilities)
+    assert.are.same({}, cd.acceptance_criteria)
+    assert.are.same({}, cd.architecture_design)
+    assert.are.same({}, cd.interfaces_integration)
+    assert.are.same({}, cd.quality_attributes)
+    assert.are.same({}, cd.related_components)
+    assert.are.equal("", cd.other)
+  end)
+
+  it("should detect empty component details", function()
+    local cd = models.ComponentDetails.new()
+    assert.is_true(cd:is_empty())
+
+    local cd2 = models.ComponentDetails.new({ purpose = "Not empty" })
+    assert.is_false(cd2:is_empty())
   end)
 end)
