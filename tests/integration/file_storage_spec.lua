@@ -124,12 +124,47 @@ describe("FileStorage", function()
       assert.are.same({"project-tag"}, loaded_project.tags)
     end)
 
-    it("should return error if file doesn't exist", function()
-      local loaded_project, err = file_storage.load("NonExistent", test_dir)
+    it("should create new project if file doesn't exist", function()
+      local loaded_project, warning = file_storage.load("NonExistent", test_dir)
 
-      assert.is_nil(loaded_project)
-      assert.is_not_nil(err)
-      assert.is_true(string.match(err, "Failed to open file") ~= nil)
+      assert.is_not_nil(loaded_project)
+      assert.is_not_nil(warning)
+      assert.is_true(string.match(warning, "file did not exist") ~= nil)
+      assert.are.equal("NonExistent", loaded_project.project_info.name)
+      assert.are.equal("", loaded_project.notes)
+    end)
+
+    it("should recover data when JSON parse fails", function()
+      -- Write invalid JSON to file
+      local filepath = test_dir .. "/BadJson.json"
+      local file = io.open(filepath, "w")
+      file:write("{ invalid json content here }")
+      file:close()
+
+      local loaded_project, warning = file_storage.load("BadJson", test_dir)
+
+      assert.is_not_nil(loaded_project)
+      assert.is_not_nil(warning)
+      assert.is_true(string.match(warning, "JSON parse failed") ~= nil)
+      assert.are.equal("BadJson", loaded_project.project_info.name)
+      -- Raw content should be preserved in notes
+      assert.is_true(string.match(loaded_project.notes, "RECOVERED DATA") ~= nil)
+      assert.is_true(string.match(loaded_project.notes, "invalid json content") ~= nil)
+    end)
+
+    it("should create new project if file is empty", function()
+      -- Create empty file
+      local filepath = test_dir .. "/EmptyFile.json"
+      local file = io.open(filepath, "w")
+      file:write("")
+      file:close()
+
+      local loaded_project, warning = file_storage.load("EmptyFile", test_dir)
+
+      assert.is_not_nil(loaded_project)
+      assert.is_not_nil(warning)
+      assert.is_true(string.match(warning, "file was empty") ~= nil)
+      assert.are.equal("EmptyFile", loaded_project.project_info.name)
     end)
 
     it("should save and load structured estimation for Jobs", function()
@@ -246,6 +281,35 @@ describe("FileStorage", function()
       local loaded, _ = file_storage.load("NilEstTest", test_dir)
 
       assert.is_nil(loaded.task_list["1"].estimation)
+    end)
+
+    it("should save and load project notes", function()
+      local info = models.ProjectInfo.new("proj-1", "NotesTest")
+      local project = models.Project.new(info, {}, {}, {}, {}, "Project-level notes here")
+
+      file_storage.save(project, test_dir)
+      local loaded, _ = file_storage.load("NotesTest", test_dir)
+
+      assert.are.equal("Project-level notes here", loaded.notes)
+    end)
+
+    it("should not include empty project notes in JSON", function()
+      local info = models.ProjectInfo.new("proj-1", "NoNotesTest")
+      local project = models.Project.new(info, {}, {}, {}, {}, "")
+
+      file_storage.save(project, test_dir)
+
+      -- Read the raw JSON to verify notes is not included
+      local file = io.open(test_dir .. "/NoNotesTest.json", "r")
+      local content = file:read("*all")
+      file:close()
+
+      -- notes should not appear in JSON when empty
+      assert.is_nil(string.match(content, '"notes"'))
+
+      -- But load should still work
+      local loaded, _ = file_storage.load("NoNotesTest", test_dir)
+      assert.are.equal("", loaded.notes)
     end)
   end)
   

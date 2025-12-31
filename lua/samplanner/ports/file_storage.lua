@@ -72,7 +72,8 @@ local function project_to_table(project)
     structure = structure,
     task_list = task_list,
     time_log = time_log,
-    tags = project.tags
+    tags = project.tags,
+    notes = project.notes ~= "" and project.notes or nil
   }
 end
 
@@ -110,26 +111,41 @@ function M.save(project, directory)
 end
 
 -- Loads a project from storage
+-- This function never fails - it always returns a valid project.
+-- If the file doesn't exist, a new empty project is created.
+-- If the file can't be parsed, the raw content is preserved in the project notes.
 -- @param project_name: string - The name of the project to load
 -- @param directory: string - The directory path where the project is stored
--- @return Project, string - the loaded project or nil, and error message if failed
+-- @return Project, string|nil - the loaded project, and optional warning message
 function M.load(project_name, directory)
   local filename = project_name .. ".json"
   local filepath = directory .. "/" .. filename
 
-  -- Read file
+  -- Read file - if it doesn't exist, create a new empty project
   local file, err = io.open(filepath, "r")
   if not file then
-    return nil, "Failed to open file for reading: " .. (err or "unknown error")
+    local project_info = models.ProjectInfo.new("", project_name)
+    local project = models.Project.new(project_info, {}, {}, {}, {}, "")
+    return project, "Created new project (file did not exist)"
   end
 
   local content = file:read("*all")
   file:close()
 
-  -- Decode JSON
+  -- Handle empty file
+  if not content or content == "" then
+    local project_info = models.ProjectInfo.new("", project_name)
+    local project = models.Project.new(project_info, {}, {}, {}, {}, "")
+    return project, "Created new project (file was empty)"
+  end
+
+  -- Decode JSON - if it fails, preserve raw content in notes
   local ok, data = pcall(vim.fn.json_decode, content)
   if not ok or not data then
-    return nil, "Failed to decode JSON from file"
+    local project_info = models.ProjectInfo.new("", project_name)
+    local notes = "=== RECOVERED DATA (could not parse JSON) ===\n" .. content
+    local project = models.Project.new(project_info, {}, {}, {}, {}, notes)
+    return project, "Created new project with recovered data (JSON parse failed)"
   end
 
   -- Convert to Project model

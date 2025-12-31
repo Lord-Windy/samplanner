@@ -157,17 +157,18 @@ function M.TimeLog.new(start_timestamp, end_timestamp, notes, interruptions, int
 end
 
 -- Project model (root level)
--- JSON: { "project_info": {...}, "structure": {...}, "task_list": {...}, "time_log": [...], "tags": [...] }
+-- JSON: { "project_info": {...}, "structure": {...}, "task_list": {...}, "time_log": [...], "tags": [...], "notes": "" }
 M.Project = {}
 M.Project.__index = M.Project
 
-function M.Project.new(project_info, structure, task_list, time_log, tags)
+function M.Project.new(project_info, structure, task_list, time_log, tags, notes)
   local self = setmetatable({}, M.Project)
   self.project_info = project_info or M.ProjectInfo.new()
   self.structure = structure or {}
   self.task_list = task_list or {}
   self.time_log = time_log or {}
   self.tags = tags or {}
+  self.notes = notes or ""
   return self
 end
 
@@ -243,7 +244,7 @@ function M.Project.from_table(data)
     end
   end
   
-  return M.Project.new(project_info, structure, task_list, time_log, data.tags)
+  return M.Project.new(project_info, structure, task_list, time_log, data.tags, data.notes)
 end
 
 return M
