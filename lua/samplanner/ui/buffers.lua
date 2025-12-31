@@ -85,6 +85,20 @@ function M.create_task_buffer(project, task_id, opts)
   -- Check if buffer already exists
   local existing = vim.fn.bufnr(buf_name)
   if existing ~= -1 then
+    -- Refresh content and restore metadata
+    local text = task_format.task_to_text(task, node_type)
+    local lines = vim.split(text, "\n")
+    vim.api.nvim_buf_set_lines(existing, 0, -1, false, lines)
+    vim.api.nvim_buf_set_option(existing, 'modified', false)
+
+    -- Restore metadata
+    M.buffers[existing] = {
+      type = M.BUFFER_TYPES.TASK,
+      project = project,
+      task_id = task_id,
+      node_type = node_type,
+    }
+
     open_buffer(existing, opts)
     return existing, nil
   end
@@ -173,6 +187,19 @@ function M.create_session_buffer(project, session_index, opts)
   -- Check if buffer already exists
   local existing = vim.fn.bufnr(buf_name)
   if existing ~= -1 then
+    -- Refresh content and restore metadata
+    local text = session_format.session_to_text(session)
+    local lines = vim.split(text, "\n")
+    vim.api.nvim_buf_set_lines(existing, 0, -1, false, lines)
+    vim.api.nvim_buf_set_option(existing, 'modified', false)
+
+    -- Restore metadata
+    M.buffers[existing] = {
+      type = M.BUFFER_TYPES.SESSION,
+      project = project,
+      session_index = session_index,
+    }
+
     open_buffer(existing, opts)
     return existing, nil
   end
