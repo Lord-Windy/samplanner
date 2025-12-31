@@ -110,7 +110,30 @@ describe("Task Format", function()
 Name: My Task
 
 ── Details ──────────────────────────
+Vision / Purpose
 Task description here
+
+Goals / Objectives
+  - Goal 1
+  - Goal 2
+
+Scope / Boundaries
+  -
+
+Key Components
+  -
+
+Success Metrics / KPIs
+  -
+
+Stakeholders
+  -
+
+Dependencies / Constraints
+  -
+
+Strategic Context
+
 
 ── Notes ────────────────────────────
 Some notes
@@ -123,7 +146,9 @@ bug, feature
 
       assert.are.equal("1", task.id)
       assert.are.equal("My Task", task.name)
-      assert.are.equal("Task description here", task.details)
+      assert.are.equal("table", type(task.details))
+      assert.are.equal("Task description here", task.details.vision_purpose)
+      assert.are.same({"Goal 1", "Goal 2"}, task.details.goals_objectives)
       assert.is_nil(task.estimation)
       assert.are.equal("Some notes", task.notes)
       assert.are.same({"bug", "feature"}, task.tags)

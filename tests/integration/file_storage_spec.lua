@@ -106,8 +106,10 @@ describe("FileStorage", function()
     it("should load a project from a JSON file", function()
       -- First save a project with no estimation
       local info = models.ProjectInfo.new("proj-1", "TestProject")
-      local task = models.Task.new("1", "Task 1", "Details", nil, {"tag1"}, "some notes")
-      local project = models.Project.new(info, {}, {["1"] = task}, {}, {"project-tag"})
+      local area_details = models.AreaDetails.new({vision_purpose = "Test area"})
+      local task = models.Task.new("1", "Task 1", area_details, nil, {"tag1"}, "some notes")
+      local structure = {["1"] = models.StructureNode.new("1", "Area", {})}
+      local project = models.Project.new(info, structure, {["1"] = task}, {}, {"project-tag"})
 
       file_storage.save(project, test_dir)
 
@@ -119,6 +121,7 @@ describe("FileStorage", function()
       assert.are.equal("proj-1", loaded_project.project_info.id)
       assert.are.equal("TestProject", loaded_project.project_info.name)
       assert.are.equal("Task 1", loaded_project.task_list["1"].name)
+      assert.are.equal("Test area", loaded_project.task_list["1"].details.vision_purpose)
       assert.are.equal("some notes", loaded_project.task_list["1"].notes)
       assert.is_nil(loaded_project.task_list["1"].estimation)
       assert.are.same({"project-tag"}, loaded_project.tags)

@@ -715,6 +715,220 @@ local function text_to_component_details(text)
   return models.ComponentDetails.new(cd)
 end
 
+-- Convert AreaDetails to text format
+local function area_details_to_text(area_details)
+  local lines = {}
+  local ad = area_details or models.AreaDetails.new()
+
+  -- Vision / Purpose section
+  table.insert(lines, "Vision / Purpose")
+  if ad.vision_purpose and ad.vision_purpose ~= "" then
+    table.insert(lines, ad.vision_purpose)
+  else
+    table.insert(lines, "")
+  end
+  table.insert(lines, "")
+
+  -- Goals / Objectives section
+  table.insert(lines, "Goals / Objectives")
+  if #ad.goals_objectives > 0 then
+    for _, item in ipairs(ad.goals_objectives) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Scope / Boundaries section
+  table.insert(lines, "Scope / Boundaries")
+  if #ad.scope_boundaries > 0 then
+    for _, item in ipairs(ad.scope_boundaries) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Key Components section
+  table.insert(lines, "Key Components")
+  if #ad.key_components > 0 then
+    for _, item in ipairs(ad.key_components) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Success Metrics / KPIs section
+  table.insert(lines, "Success Metrics / KPIs")
+  if #ad.success_metrics > 0 then
+    for _, item in ipairs(ad.success_metrics) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Stakeholders section
+  table.insert(lines, "Stakeholders")
+  if #ad.stakeholders > 0 then
+    for _, item in ipairs(ad.stakeholders) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Dependencies / Constraints section
+  table.insert(lines, "Dependencies / Constraints")
+  if #ad.dependencies_constraints > 0 then
+    for _, item in ipairs(ad.dependencies_constraints) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Strategic Context section
+  table.insert(lines, "Strategic Context")
+  if ad.strategic_context and ad.strategic_context ~= "" then
+    table.insert(lines, ad.strategic_context)
+  else
+    table.insert(lines, "")
+  end
+
+  return table.concat(lines, "\n")
+end
+
+-- Parse AreaDetails from text
+local function text_to_area_details(text)
+  local ad = {
+    vision_purpose = "",
+    goals_objectives = {},
+    scope_boundaries = {},
+    key_components = {},
+    success_metrics = {},
+    stakeholders = {},
+    dependencies_constraints = {},
+    strategic_context = "",
+  }
+
+  local current_section = nil
+  local vision_lines = {}
+  local context_lines = {}
+
+  for line in text:gmatch("[^\r\n]*") do
+    -- Check section headers
+    if line:match("^Vision / Purpose$") then
+      current_section = "vision"
+      vision_lines = {}
+    elseif line:match("^Goals / Objectives$") then
+      -- Save vision before switching
+      if current_section == "vision" and #vision_lines > 0 then
+        while #vision_lines > 0 and vision_lines[#vision_lines] == "" do
+          table.remove(vision_lines)
+        end
+        ad.vision_purpose = table.concat(vision_lines, "\n")
+      end
+      current_section = "goals"
+    elseif line:match("^Scope / Boundaries$") then
+      current_section = "scope"
+    elseif line:match("^Key Components$") then
+      current_section = "components"
+    elseif line:match("^Success Metrics / KPIs$") then
+      current_section = "metrics"
+    elseif line:match("^Stakeholders$") then
+      current_section = "stakeholders"
+    elseif line:match("^Dependencies / Constraints$") then
+      current_section = "dependencies"
+    elseif line:match("^Strategic Context$") then
+      current_section = "context"
+      context_lines = {}
+
+    -- Vision section content (capture everything until next section)
+    elseif current_section == "vision" then
+      if line ~= "" then
+        table.insert(vision_lines, line)
+      elseif #vision_lines > 0 then
+        table.insert(vision_lines, "")
+      end
+
+    -- Goals section content
+    elseif current_section == "goals" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(ad.goals_objectives, item)
+      end
+
+    -- Scope section content
+    elseif current_section == "scope" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(ad.scope_boundaries, item)
+      end
+
+    -- Key Components section content
+    elseif current_section == "components" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(ad.key_components, item)
+      end
+
+    -- Success Metrics section content
+    elseif current_section == "metrics" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(ad.success_metrics, item)
+      end
+
+    -- Stakeholders section content
+    elseif current_section == "stakeholders" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(ad.stakeholders, item)
+      end
+
+    -- Dependencies section content
+    elseif current_section == "dependencies" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(ad.dependencies_constraints, item)
+      end
+
+    -- Strategic Context section content (capture everything)
+    elseif current_section == "context" then
+      if line ~= "" then
+        table.insert(context_lines, line)
+      elseif #context_lines > 0 then
+        table.insert(context_lines, "")
+      end
+    end
+  end
+
+  -- Handle final sections
+  if current_section == "vision" and #vision_lines > 0 then
+    while #vision_lines > 0 and vision_lines[#vision_lines] == "" do
+      table.remove(vision_lines)
+    end
+    ad.vision_purpose = vim.trim(table.concat(vision_lines, "\n"))
+  end
+
+  if current_section == "context" and #context_lines > 0 then
+    while #context_lines > 0 and context_lines[#context_lines] == "" do
+      table.remove(context_lines)
+    end
+    ad.strategic_context = vim.trim(table.concat(context_lines, "\n"))
+  end
+
+  return models.AreaDetails.new(ad)
+end
+
 -- Convert Task to editable text format
 -- @param task: Task - The task to convert
 -- @param node_type: string|nil - "Area", "Component", or "Job" (nil shows no estimation)
@@ -749,8 +963,18 @@ function M.task_to_text(task, node_type)
         table.insert(lines, task.details)
       end
     end
+  elseif node_type == "Area" then
+    -- For Areas, use structured AreaDetails format
+    if type(task.details) == "table" then
+      table.insert(lines, area_details_to_text(task.details))
+    else
+      -- If somehow still a string, show it (shouldn't happen with migration)
+      if task.details and task.details ~= "" then
+        table.insert(lines, task.details)
+      end
+    end
   else
-    -- For Area, show as plain text
+    -- For unknown types, show as plain text
     if task.details and task.details ~= "" then
       table.insert(lines, task.details)
     end
@@ -812,6 +1036,8 @@ function M.text_to_task(text, node_type)
           details = text_to_job_details(table.concat(section_content, "\n"))
         elseif node_type == "Component" then
           details = text_to_component_details(table.concat(section_content, "\n"))
+        elseif node_type == "Area" then
+          details = text_to_area_details(table.concat(section_content, "\n"))
         else
           details = table.concat(section_content, "\n")
         end
@@ -825,6 +1051,8 @@ function M.text_to_task(text, node_type)
           details = text_to_job_details(table.concat(section_content, "\n"))
         elseif node_type == "Component" then
           details = text_to_component_details(table.concat(section_content, "\n"))
+        elseif node_type == "Area" then
+          details = text_to_area_details(table.concat(section_content, "\n"))
         else
           details = table.concat(section_content, "\n")
         end
@@ -843,6 +1071,8 @@ function M.text_to_task(text, node_type)
           details = text_to_job_details(table.concat(section_content, "\n"))
         elseif node_type == "Component" then
           details = text_to_component_details(table.concat(section_content, "\n"))
+        elseif node_type == "Area" then
+          details = text_to_area_details(table.concat(section_content, "\n"))
         else
           details = table.concat(section_content, "\n")
         end
@@ -890,6 +1120,8 @@ function M.text_to_task(text, node_type)
       details = text_to_job_details(table.concat(section_content, "\n"))
     elseif node_type == "Component" then
       details = text_to_component_details(table.concat(section_content, "\n"))
+    elseif node_type == "Area" then
+      details = text_to_area_details(table.concat(section_content, "\n"))
     else
       details = table.concat(section_content, "\n")
     end

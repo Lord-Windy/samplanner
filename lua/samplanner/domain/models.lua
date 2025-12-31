@@ -162,6 +162,46 @@ function M.ComponentDetails:is_empty()
     and self.other == ""
 end
 
+-- AreaDetails model (structured details for Area type tasks)
+-- JSON: {
+--   "vision_purpose": "",
+--   "goals_objectives": [],
+--   "scope_boundaries": [],
+--   "key_components": [],
+--   "success_metrics": [],
+--   "stakeholders": [],
+--   "dependencies_constraints": [],
+--   "strategic_context": ""
+-- }
+M.AreaDetails = {}
+M.AreaDetails.__index = M.AreaDetails
+
+function M.AreaDetails.new(data)
+  data = data or {}
+  local self = setmetatable({}, M.AreaDetails)
+  self.vision_purpose = data.vision_purpose or ""
+  self.goals_objectives = data.goals_objectives or {}
+  self.scope_boundaries = data.scope_boundaries or {}
+  self.key_components = data.key_components or {}
+  self.success_metrics = data.success_metrics or {}
+  self.stakeholders = data.stakeholders or {}
+  self.dependencies_constraints = data.dependencies_constraints or {}
+  self.strategic_context = data.strategic_context or ""
+  return self
+end
+
+-- Check if area details has any meaningful data
+function M.AreaDetails:is_empty()
+  return self.vision_purpose == ""
+    and #self.goals_objectives == 0
+    and #self.scope_boundaries == 0
+    and #self.key_components == 0
+    and #self.success_metrics == 0
+    and #self.stakeholders == 0
+    and #self.dependencies_constraints == 0
+    and self.strategic_context == ""
+end
+
 -- Task model
 -- JSON: {
 --   "name": "name",
@@ -177,10 +217,12 @@ function M.Task.new(id, name, details, estimation, tags, notes)
   local self = setmetatable({}, M.Task)
   self.id = id or ""
   self.name = name or ""
-  -- details can be string (for Area) or JobDetails (for Job) or ComponentDetails (for Component)
+  -- details can be AreaDetails (for Area) or JobDetails (for Job) or ComponentDetails (for Component)
   if details and type(details) == "table" and getmetatable(details) == M.JobDetails then
     self.details = details
   elseif details and type(details) == "table" and getmetatable(details) == M.ComponentDetails then
+    self.details = details
+  elseif details and type(details) == "table" and getmetatable(details) == M.AreaDetails then
     self.details = details
   elseif details and type(details) == "table" then
     -- Try to determine which type of details this should be
@@ -188,11 +230,15 @@ function M.Task.new(id, name, details, estimation, tags, notes)
     local has_job_fields = details.context_why ~= nil or details.outcome_dod ~= nil or details.approach ~= nil
     -- Check for ComponentDetails fields
     local has_component_fields = details.purpose ~= nil or details.capabilities ~= nil or details.acceptance_criteria ~= nil
+    -- Check for AreaDetails fields
+    local has_area_fields = details.vision_purpose ~= nil or details.goals_objectives ~= nil or details.key_components ~= nil
 
     if has_job_fields then
       self.details = M.JobDetails.new(details)
     elseif has_component_fields then
       self.details = M.ComponentDetails.new(details)
+    elseif has_area_fields then
+      self.details = M.AreaDetails.new(details)
     else
       self.details = details or ""
     end
@@ -391,24 +437,45 @@ local function validate_and_migrate_details(task_data, node_type, notes)
     -- Default: empty ComponentDetails
     return M.ComponentDetails.new(), notes
   else
-    -- For Area, details should be a string
+    -- For Area, details should be an AreaDetails structure
+    -- If details doesn't exist, create empty AreaDetails
     if not details then
-      return "", notes
+      return M.AreaDetails.new(), notes
     end
 
-    -- If details is a table (shouldn't be for Area), migrate to notes
+    -- If details is a table with proper AreaDetails structure, use it
     if type(details) == "table" then
-      local detail_str = vim.inspect(details)
-      if notes ~= "" then
-        notes = "Migrated details:\n" .. detail_str .. "\n\n" .. notes
+      -- Check if it conforms to AreaDetails structure
+      local has_area_details_fields = details.vision_purpose ~= nil
+        or details.goals_objectives ~= nil
+        or details.key_components ~= nil
+
+      if has_area_details_fields then
+        return M.AreaDetails.new(details), notes
       else
-        notes = "Migrated details:\n" .. detail_str
+        -- Table but not conforming structure - migrate to notes
+        local detail_str = vim.inspect(details)
+        if notes ~= "" then
+          notes = "Migrated details:\n" .. detail_str .. "\n\n" .. notes
+        else
+          notes = "Migrated details:\n" .. detail_str
+        end
+        return M.AreaDetails.new(), notes
       end
-      return "", notes
     end
 
-    -- Keep as string
-    return details, notes
+    -- If details is a string (old format), migrate to notes
+    if type(details) == "string" and details ~= "" then
+      if notes ~= "" then
+        notes = "Migrated details:\n" .. details .. "\n\n" .. notes
+      else
+        notes = "Migrated details:\n" .. details
+      end
+      return M.AreaDetails.new(), notes
+    end
+
+    -- Default: empty AreaDetails
+    return M.AreaDetails.new(), notes
   end
 end
 

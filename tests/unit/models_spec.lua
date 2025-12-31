@@ -178,7 +178,16 @@ describe("Project", function()
       task_list = {
         ["1"] = {
           name = "Task 1",
-          details = "Details",
+          details = {
+            vision_purpose = "Area vision",
+            goals_objectives = {"Goal 1"},
+            scope_boundaries = {},
+            key_components = {},
+            success_metrics = {},
+            stakeholders = {},
+            dependencies_constraints = {},
+            strategic_context = ""
+          },
           estimation = { work_type = "new_work", confidence = "high" },
           notes = "some notes",
           tags = {"tag1"}
@@ -203,6 +212,7 @@ describe("Project", function()
     assert.are.equal("Area", project.structure["1"].type)
     assert.are.equal("Task 1", project.task_list["1"].name)
     assert.are.equal("new_work", project.task_list["1"].estimation.work_type)
+    assert.are.equal("Area vision", project.task_list["1"].details.vision_purpose)
     assert.are.equal("some notes", project.task_list["1"].notes)
     assert.are.equal("2023-01-01T10:00:00Z", project.time_log[1].start_timestamp)
     assert.are.same({"project-tag"}, project.tags)
@@ -226,8 +236,10 @@ describe("Project", function()
 
     local project = models.Project.from_table(data)
     -- Old estimation string should be migrated to notes
+    -- Also, since there's no structure, the task is treated as Area and string details are migrated
     assert.is_nil(project.task_list["1"].estimation)
-    assert.are.equal("2h", project.task_list["1"].notes)
+    assert.are.equal("table", type(project.task_list["1"].details))
+    assert.are.equal("Migrated details:\nDetails\n\n2h", project.task_list["1"].notes)
   end)
 
   it("should migrate string details to notes for Job type tasks", function()
@@ -336,7 +348,7 @@ describe("Project", function()
     assert.is_true(project.task_list["1"].details:is_empty())
   end)
 
-  it("should keep string details for Area type tasks", function()
+  it("should migrate string details to notes for Area type tasks", function()
     local data = {
       project_info = { id = "proj-1", name = "Test" },
       structure = {
@@ -354,8 +366,9 @@ describe("Project", function()
     }
 
     local project = models.Project.from_table(data)
-    -- String details should be preserved for Area
-    assert.are.equal("Area details", project.task_list["1"].details)
+    -- String details should be migrated to notes for Area, and details becomes AreaDetails
+    assert.are.equal("table", type(project.task_list["1"].details))
+    assert.are.equal("Area details", project.task_list["1"].notes:match("Migrated details:\n(.+)"))
   end)
 
   it("should migrate string details to notes for Component type tasks", function()
@@ -414,6 +427,80 @@ describe("Project", function()
     assert.are.equal("Test purpose", details.purpose)
     assert.are.same({"Feature 1", "Feature 2"}, details.capabilities)
     assert.are.same({"Criteria 1"}, details.acceptance_criteria)
+  end)
+
+  it("should preserve proper AreaDetails for Area type tasks", function()
+    local data = {
+      project_info = { id = "proj-1", name = "Test" },
+      structure = {
+        ["1"] = { type = "Area", subtasks = {} }
+      },
+      task_list = {
+        ["1"] = {
+          name = "Area Task",
+          details = {
+            vision_purpose = "Test vision",
+            goals_objectives = {"Goal 1", "Goal 2"},
+            scope_boundaries = {"In scope"},
+            key_components = {"Component A"},
+            success_metrics = {"Metric 1"},
+            stakeholders = {"Stakeholder 1"},
+            dependencies_constraints = {"Constraint 1"},
+            strategic_context = "Strategic context"
+          },
+          tags = {}
+        }
+      },
+      time_log = {},
+      tags = {}
+    }
+
+    local project = models.Project.from_table(data)
+    local details = project.task_list["1"].details
+    assert.is_true(getmetatable(details) == models.AreaDetails)
+    assert.are.equal("Test vision", details.vision_purpose)
+    assert.are.same({"Goal 1", "Goal 2"}, details.goals_objectives)
+    assert.are.same({"In scope"}, details.scope_boundaries)
+    assert.are.equal("Strategic context", details.strategic_context)
+  end)
+end)
+
+describe("AreaDetails", function()
+  it("should create a new AreaDetails instance", function()
+    local ad = models.AreaDetails.new({
+      vision_purpose = "Test vision",
+      goals_objectives = {"Goal 1", "Goal 2"},
+      scope_boundaries = {"Boundary 1"},
+      key_components = {"Component A"},
+      success_metrics = {"Metric 1"},
+      stakeholders = {"Stakeholder 1"},
+      dependencies_constraints = {"Constraint 1"},
+      strategic_context = "Strategic context"
+    })
+    assert.are.equal("Test vision", ad.vision_purpose)
+    assert.are.same({"Goal 1", "Goal 2"}, ad.goals_objectives)
+    assert.are.same({"Boundary 1"}, ad.scope_boundaries)
+    assert.are.equal("Strategic context", ad.strategic_context)
+  end)
+
+  it("should use defaults for missing parameters", function()
+    local ad = models.AreaDetails.new()
+    assert.are.equal("", ad.vision_purpose)
+    assert.are.same({}, ad.goals_objectives)
+    assert.are.same({}, ad.scope_boundaries)
+    assert.are.same({}, ad.key_components)
+    assert.are.same({}, ad.success_metrics)
+    assert.are.same({}, ad.stakeholders)
+    assert.are.same({}, ad.dependencies_constraints)
+    assert.are.equal("", ad.strategic_context)
+  end)
+
+  it("should detect empty area details", function()
+    local ad = models.AreaDetails.new()
+    assert.is_true(ad:is_empty())
+
+    local ad2 = models.AreaDetails.new({ vision_purpose = "Not empty" })
+    assert.is_false(ad2:is_empty())
   end)
 end)
 
