@@ -7,6 +7,28 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;./tests/helpers/?.
 -- Load mini test framework
 require('mini_test')
 
+-- Mock vim global for testing outside Neovim
+_G.vim = {
+  trim = function(s)
+    return s:match("^%s*(.-)%s*$")
+  end,
+  inspect = function(t)
+    if type(t) ~= "table" then
+      return tostring(t)
+    end
+    local mt = getmetatable(t)
+    local items = {}
+    for k, v in pairs(t) do
+      if type(v) == "table" then
+        table.insert(items, tostring(k) .. " = {...}")
+      else
+        table.insert(items, tostring(k) .. " = " .. tostring(v))
+      end
+    end
+    return "{" .. table.concat(items, ", ") .. "}"
+  end
+}
+
 local models = require('samplanner.domain.models')
 
 describe("ProjectInfo", function()
@@ -206,5 +228,181 @@ describe("Project", function()
     -- Old estimation string should be migrated to notes
     assert.is_nil(project.task_list["1"].estimation)
     assert.are.equal("2h", project.task_list["1"].notes)
+  end)
+
+  it("should migrate string details to notes for Job type tasks", function()
+    local data = {
+      project_info = { id = "proj-1", name = "Test" },
+      structure = {
+        ["1"] = { type = "Job", subtasks = {} }
+      },
+      task_list = {
+        ["1"] = {
+          name = "Job Task",
+          details = "Old string details",  -- Should be JobDetails for Job type
+          tags = {}
+        }
+      },
+      time_log = {},
+      tags = {}
+    }
+
+    local project = models.Project.from_table(data)
+    -- String details should be migrated to notes
+    assert.are.equal("table", type(project.task_list["1"].details))
+    assert.is_true(project.task_list["1"].details:is_empty())
+    assert.is_true(project.task_list["1"].notes:find("Migrated details") ~= nil)
+    assert.is_true(project.task_list["1"].notes:find("Old string details") ~= nil)
+  end)
+
+  it("should migrate non-conforming table details to notes for Job type tasks", function()
+    local data = {
+      project_info = { id = "proj-1", name = "Test" },
+      structure = {
+        ["1"] = { type = "Job", subtasks = {} }
+      },
+      task_list = {
+        ["1"] = {
+          name = "Job Task",
+          details = { foo = "bar", baz = "qux" },  -- Wrong structure
+          tags = {}
+        }
+      },
+      time_log = {},
+      tags = {}
+    }
+
+    local project = models.Project.from_table(data)
+    -- Non-conforming details should be migrated to notes
+    assert.are.equal("table", type(project.task_list["1"].details))
+    assert.is_true(project.task_list["1"].details:is_empty())
+    assert.is_true(project.task_list["1"].notes:find("Migrated details") ~= nil)
+  end)
+
+  it("should preserve proper JobDetails for Job type tasks", function()
+    local data = {
+      project_info = { id = "proj-1", name = "Test" },
+      structure = {
+        ["1"] = { type = "Job", subtasks = {} }
+      },
+      task_list = {
+        ["1"] = {
+          name = "Job Task",
+          details = {
+            context_why = "Fixing a bug",
+            outcome_dod = {"Bug fixed", "Tests pass"},
+            scope_in = {"Fix root cause"},
+            scope_out = {},
+            requirements_constraints = {},
+            dependencies = {},
+            approach = {"Debug", "Fix", "Test"},
+            risks = {},
+            validation_test_plan = {}
+          },
+          tags = {}
+        }
+      },
+      time_log = {},
+      tags = {}
+    }
+
+    local project = models.Project.from_table(data)
+    -- Proper JobDetails should be preserved
+    assert.are.equal("table", type(project.task_list["1"].details))
+    assert.are.equal("Fixing a bug", project.task_list["1"].details.context_why)
+    assert.are.same({"Bug fixed", "Tests pass"}, project.task_list["1"].details.outcome_dod)
+    assert.are.equal("", project.task_list["1"].notes)
+  end)
+
+  it("should create empty JobDetails for Job type tasks without details", function()
+    local data = {
+      project_info = { id = "proj-1", name = "Test" },
+      structure = {
+        ["1"] = { type = "Job", subtasks = {} }
+      },
+      task_list = {
+        ["1"] = {
+          name = "Job Task",
+          tags = {}
+        }
+      },
+      time_log = {},
+      tags = {}
+    }
+
+    local project = models.Project.from_table(data)
+    -- Should have empty JobDetails
+    assert.are.equal("table", type(project.task_list["1"].details))
+    assert.is_true(project.task_list["1"].details:is_empty())
+  end)
+
+  it("should keep string details for Area and Component type tasks", function()
+    local data = {
+      project_info = { id = "proj-1", name = "Test" },
+      structure = {
+        ["1"] = { type = "Area", subtasks = {} },
+        ["2"] = { type = "Component", subtasks = {} }
+      },
+      task_list = {
+        ["1"] = {
+          name = "Area Task",
+          details = "Area details",
+          tags = {}
+        },
+        ["2"] = {
+          name = "Component Task",
+          details = "Component details",
+          tags = {}
+        }
+      },
+      time_log = {},
+      tags = {}
+    }
+
+    local project = models.Project.from_table(data)
+    -- String details should be preserved for Area/Component
+    assert.are.equal("Area details", project.task_list["1"].details)
+    assert.are.equal("Component details", project.task_list["2"].details)
+  end)
+end)
+
+describe("JobDetails", function()
+  it("should create a new JobDetails instance", function()
+    local jd = models.JobDetails.new({
+      context_why = "Test context",
+      outcome_dod = {"Outcome 1", "Outcome 2"},
+      scope_in = {"In scope item"},
+      scope_out = {"Out of scope item"},
+      requirements_constraints = {"Must be fast"},
+      dependencies = {"API ready"},
+      approach = {"Step 1", "Step 2"},
+      risks = {"Unknown complexity"},
+      validation_test_plan = {"Unit tests", "Integration tests"}
+    })
+    assert.are.equal("Test context", jd.context_why)
+    assert.are.same({"Outcome 1", "Outcome 2"}, jd.outcome_dod)
+    assert.are.same({"In scope item"}, jd.scope_in)
+    assert.are.same({"Out of scope item"}, jd.scope_out)
+  end)
+
+  it("should use defaults for missing parameters", function()
+    local jd = models.JobDetails.new()
+    assert.are.equal("", jd.context_why)
+    assert.are.same({}, jd.outcome_dod)
+    assert.are.same({}, jd.scope_in)
+    assert.are.same({}, jd.scope_out)
+    assert.are.same({}, jd.requirements_constraints)
+    assert.are.same({}, jd.dependencies)
+    assert.are.same({}, jd.approach)
+    assert.are.same({}, jd.risks)
+    assert.are.same({}, jd.validation_test_plan)
+  end)
+
+  it("should detect empty job details", function()
+    local jd = models.JobDetails.new()
+    assert.is_true(jd:is_empty())
+
+    local jd2 = models.JobDetails.new({ context_why = "Not empty" })
+    assert.is_false(jd2:is_empty())
   end)
 end)

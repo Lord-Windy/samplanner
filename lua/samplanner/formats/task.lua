@@ -255,6 +255,244 @@ local function text_to_estimation(text)
   return models.Estimation.new(est)
 end
 
+-- Convert JobDetails to text format
+local function job_details_to_text(job_details)
+  local lines = {}
+  local jd = job_details or models.JobDetails.new()
+
+  -- Context / Why section
+  table.insert(lines, "Context / Why")
+  if jd.context_why and jd.context_why ~= "" then
+    table.insert(lines, jd.context_why)
+  else
+    table.insert(lines, "")
+  end
+  table.insert(lines, "")
+
+  -- Outcome / Definition of Done section
+  table.insert(lines, "Outcome / Definition of Done")
+  if #jd.outcome_dod > 0 then
+    for _, item in ipairs(jd.outcome_dod) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Scope section
+  table.insert(lines, "Scope")
+  table.insert(lines, "  In scope:")
+  if #jd.scope_in > 0 then
+    for _, item in ipairs(jd.scope_in) do
+      table.insert(lines, "    - " .. item)
+    end
+  else
+    table.insert(lines, "    - ")
+  end
+  table.insert(lines, "  Out of scope:")
+  if #jd.scope_out > 0 then
+    for _, item in ipairs(jd.scope_out) do
+      table.insert(lines, "    - " .. item)
+    end
+  else
+    table.insert(lines, "    - ")
+  end
+  table.insert(lines, "")
+
+  -- Requirements / Constraints section
+  table.insert(lines, "Requirements / Constraints")
+  if #jd.requirements_constraints > 0 then
+    for _, item in ipairs(jd.requirements_constraints) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Dependencies section
+  table.insert(lines, "Dependencies")
+  if #jd.dependencies > 0 then
+    for _, item in ipairs(jd.dependencies) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Approach section
+  table.insert(lines, "Approach (brief plan)")
+  if #jd.approach > 0 then
+    for _, item in ipairs(jd.approach) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Risks section
+  table.insert(lines, "Risks")
+  if #jd.risks > 0 then
+    for _, item in ipairs(jd.risks) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+  table.insert(lines, "")
+
+  -- Validation / Test Plan section
+  table.insert(lines, "Validation / Test Plan")
+  if #jd.validation_test_plan > 0 then
+    for _, item in ipairs(jd.validation_test_plan) do
+      table.insert(lines, "  - " .. item)
+    end
+  else
+    table.insert(lines, "  - ")
+  end
+
+  return table.concat(lines, "\n")
+end
+
+-- Parse JobDetails from text
+local function text_to_job_details(text)
+  local jd = {
+    context_why = "",
+    outcome_dod = {},
+    scope_in = {},
+    scope_out = {},
+    requirements_constraints = {},
+    dependencies = {},
+    approach = {},
+    risks = {},
+    validation_test_plan = {},
+  }
+
+  local current_section = nil
+  local current_subsection = nil
+  local context_lines = {}
+
+  for line in text:gmatch("[^\r\n]*") do
+    -- Check section headers
+    if line:match("^Context / Why$") then
+      current_section = "context"
+      current_subsection = nil
+      context_lines = {}
+    elseif line:match("^Outcome / Definition of Done$") then
+      -- Save context before switching
+      if current_section == "context" and #context_lines > 0 then
+        -- Remove trailing empty lines
+        while #context_lines > 0 and context_lines[#context_lines] == "" do
+          table.remove(context_lines)
+        end
+        jd.context_why = table.concat(context_lines, "\n")
+      end
+      current_section = "outcome"
+      current_subsection = nil
+    elseif line:match("^Scope$") then
+      current_section = "scope"
+      current_subsection = nil
+    elseif line:match("^Requirements / Constraints$") then
+      current_section = "requirements"
+      current_subsection = nil
+    elseif line:match("^Dependencies$") then
+      current_section = "dependencies"
+      current_subsection = nil
+    elseif line:match("^Approach") then
+      current_section = "approach"
+      current_subsection = nil
+    elseif line:match("^Risks$") then
+      current_section = "risks"
+      current_subsection = nil
+    elseif line:match("^Validation / Test Plan$") then
+      current_section = "validation"
+      current_subsection = nil
+
+    -- Context section content (capture everything until next section)
+    elseif current_section == "context" then
+      -- Only add non-empty lines or preserve internal empty lines
+      if line ~= "" then
+        table.insert(context_lines, line)
+      elseif #context_lines > 0 then
+        -- Mark that we saw an empty line, but don't add it yet
+        -- This prevents trailing empty lines from being added
+        table.insert(context_lines, "")
+      end
+
+    -- Outcome section content
+    elseif current_section == "outcome" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(jd.outcome_dod, item)
+      end
+
+    -- Scope section content
+    elseif current_section == "scope" and line:match("^%s+In scope:") then
+      current_subsection = "in"
+    elseif current_section == "scope" and line:match("^%s+Out of scope:") then
+      current_subsection = "out"
+    elseif current_section == "scope" and current_subsection and line:match("^%s+%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%s+%-%s*(.*)$"))
+      if item ~= "" then
+        if current_subsection == "in" then
+          table.insert(jd.scope_in, item)
+        elseif current_subsection == "out" then
+          table.insert(jd.scope_out, item)
+        end
+      end
+
+    -- Requirements section content
+    elseif current_section == "requirements" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(jd.requirements_constraints, item)
+      end
+
+    -- Dependencies section content
+    elseif current_section == "dependencies" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(jd.dependencies, item)
+      end
+
+    -- Approach section content
+    elseif current_section == "approach" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(jd.approach, item)
+      end
+
+    -- Risks section content
+    elseif current_section == "risks" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(jd.risks, item)
+      end
+
+    -- Validation section content
+    elseif current_section == "validation" and line:match("^%s+%-%s*(.*)$") then
+      local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
+      if item ~= "" then
+        table.insert(jd.validation_test_plan, item)
+      end
+    end
+  end
+
+  -- Handle final context section
+  if current_section == "context" and #context_lines > 0 then
+    -- Remove trailing empty lines
+    while #context_lines > 0 and context_lines[#context_lines] == "" do
+      table.remove(context_lines)
+    end
+    jd.context_why = vim.trim(table.concat(context_lines, "\n"))
+  end
+
+  return models.JobDetails.new(jd)
+end
+
 -- Convert Task to editable text format
 -- @param task: Task - The task to convert
 -- @param node_type: string|nil - "Area", "Component", or "Job" (nil shows no estimation)
@@ -269,8 +507,21 @@ function M.task_to_text(task, node_type)
 
   -- Details section
   table.insert(lines, "── Details ──────────────────────────")
-  if task.details and task.details ~= "" then
-    table.insert(lines, task.details)
+  if node_type == "Job" then
+    -- For Jobs, use structured JobDetails format
+    if type(task.details) == "table" then
+      table.insert(lines, job_details_to_text(task.details))
+    else
+      -- If somehow still a string, show it (shouldn't happen with migration)
+      if task.details and task.details ~= "" then
+        table.insert(lines, task.details)
+      end
+    end
+  else
+    -- For Area and Component, show as plain text
+    if task.details and task.details ~= "" then
+      table.insert(lines, task.details)
+    end
   end
   table.insert(lines, "")
 
@@ -325,14 +576,22 @@ function M.text_to_task(text, node_type)
     elseif line:match("^── Estimation") then
       -- Save details before switching
       if current_section == "details" then
-        details = table.concat(section_content, "\n")
+        if node_type == "Job" then
+          details = text_to_job_details(table.concat(section_content, "\n"))
+        else
+          details = table.concat(section_content, "\n")
+        end
       end
       current_section = "estimation"
       section_content = {}
     elseif line:match("^── Notes") then
       -- Save previous section
       if current_section == "details" then
-        details = table.concat(section_content, "\n")
+        if node_type == "Job" then
+          details = text_to_job_details(table.concat(section_content, "\n"))
+        else
+          details = table.concat(section_content, "\n")
+        end
       elseif current_section == "estimation" then
         -- Parse estimation
         if node_type == "Job" then
@@ -344,7 +603,11 @@ function M.text_to_task(text, node_type)
     elseif line:match("^── Tags") then
       -- Save previous section
       if current_section == "details" then
-        details = table.concat(section_content, "\n")
+        if node_type == "Job" then
+          details = text_to_job_details(table.concat(section_content, "\n"))
+        else
+          details = table.concat(section_content, "\n")
+        end
       elseif current_section == "estimation" then
         if node_type == "Job" then
           estimation = text_to_estimation(table.concat(section_content, "\n"))
@@ -385,7 +648,11 @@ function M.text_to_task(text, node_type)
 
   -- Handle final section
   if current_section == "details" then
-    details = table.concat(section_content, "\n")
+    if node_type == "Job" then
+      details = text_to_job_details(table.concat(section_content, "\n"))
+    else
+      details = table.concat(section_content, "\n")
+    end
   elseif current_section == "estimation" then
     if node_type == "Job" then
       estimation = text_to_estimation(table.concat(section_content, "\n"))
@@ -394,8 +661,10 @@ function M.text_to_task(text, node_type)
     notes = table.concat(section_content, "\n")
   end
 
-  -- Trim trailing whitespace from multi-line content
-  details = vim.trim(details)
+  -- Trim trailing whitespace from multi-line content (only for string details)
+  if type(details) == "string" then
+    details = vim.trim(details)
+  end
   notes = vim.trim(notes)
 
   return models.Task.new(id, name, details, estimation, tags, notes)

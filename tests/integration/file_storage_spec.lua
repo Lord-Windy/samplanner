@@ -197,7 +197,20 @@ describe("FileStorage", function()
         }
       })
 
-      local task = models.Task.new("1.1.1", "Implement Feature", "Feature details", estimation, {"feature"}, "additional notes")
+      -- Create structured details for Job type
+      local job_details = models.JobDetails.new({
+        context_why = "Users need this feature",
+        outcome_dod = {"Feature implemented", "Tests pass"},
+        scope_in = {"Core functionality"},
+        scope_out = {"Advanced options"},
+        requirements_constraints = {"Must be backwards compatible"},
+        dependencies = {"API v2"},
+        approach = {"Design", "Implement", "Test"},
+        risks = {"API changes"},
+        validation_test_plan = {"Unit tests", "Integration tests"}
+      })
+
+      local task = models.Task.new("1.1.1", "Implement Feature", job_details, estimation, {"feature"}, "additional notes")
       local node = models.StructureNode.new("1.1.1", "Job", {})
       local project = models.Project.new(info, {["1.1.1"] = node}, {["1.1.1"] = task}, {}, {})
 
@@ -233,10 +246,16 @@ describe("FileStorage", function()
       assert.are.same({"Reuse existing component"}, est.post_estimate_notes.could_be_smaller)
       assert.are.same({"API changes", "Scope creep"}, est.post_estimate_notes.could_be_bigger)
       assert.are.same({"Testing time"}, est.post_estimate_notes.ignored_last_time)
+
+      -- Verify JobDetails was preserved
+      assert.are.equal("table", type(loaded_task.details))
+      assert.are.equal("Users need this feature", loaded_task.details.context_why)
+      assert.are.same({"Feature implemented", "Tests pass"}, loaded_task.details.outcome_dod)
+
       assert.are.equal("additional notes", loaded_task.notes)
     end)
 
-    it("should migrate old string estimation to notes on load", function()
+    it("should migrate old string estimation and details to notes on load", function()
       -- Manually create a JSON file with old format
       local old_format_json = [[{
         "project_info": {"id": "proj-1", "name": "MigrationTest"},
@@ -269,7 +288,13 @@ describe("FileStorage", function()
       assert.are.equal("Old Task", task.name)
       -- Old string estimation should be migrated to notes
       assert.is_nil(task.estimation)
-      assert.are.equal("2 hours", task.notes)
+      -- Both old string details and estimation should be migrated to notes
+      assert.is_true(task.notes:find("Migrated details") ~= nil)
+      assert.is_true(task.notes:find("Details") ~= nil)
+      assert.is_true(task.notes:find("2 hours") ~= nil)
+      -- Details should now be an empty JobDetails object
+      assert.are.equal("table", type(task.details))
+      assert.is_true(task.details:is_empty())
     end)
 
     it("should preserve empty estimation as nil", function()

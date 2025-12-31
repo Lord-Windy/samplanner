@@ -225,7 +225,21 @@ enhancement
           ignored_last_time = {}
         }
       })
-      local original = models.Task.new("2.1", "Fix Bug", "Bug details", original_est, {"urgent"}, "Check logs first")
+
+      -- For Job type, create JobDetails object
+      local original_job_details = models.JobDetails.new({
+        context_why = "Bug is causing user complaints",
+        outcome_dod = {"Bug fixed", "Tests passing"},
+        scope_in = {"Fix root cause"},
+        scope_out = {},
+        requirements_constraints = {"No API changes"},
+        dependencies = {},
+        approach = {"Debug", "Fix", "Test"},
+        risks = {"Root cause unclear"},
+        validation_test_plan = {"Unit tests", "Manual verification"}
+      })
+
+      local original = models.Task.new("2.1", "Fix Bug", original_job_details, original_est, {"urgent"}, "Check logs first")
 
       -- Convert to text
       local text = task_format.task_to_text(original, "Job")
@@ -235,7 +249,14 @@ enhancement
 
       assert.are.equal(original.id, parsed.id)
       assert.are.equal(original.name, parsed.name)
-      assert.are.equal(original.details, parsed.details)
+
+      -- For Job type, details is a JobDetails object
+      assert.are.equal("table", type(parsed.details))
+      assert.are.equal(original_job_details.context_why, parsed.details.context_why)
+      assert.are.same(original_job_details.outcome_dod, parsed.details.outcome_dod)
+      assert.are.same(original_job_details.scope_in, parsed.details.scope_in)
+      assert.are.same(original_job_details.approach, parsed.details.approach)
+
       assert.are.equal(original.notes, parsed.notes)
       assert.are.same(original.tags, parsed.tags)
 
