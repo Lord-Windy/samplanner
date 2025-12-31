@@ -104,30 +104,148 @@ describe("FileStorage", function()
   
   describe("load", function()
     it("should load a project from a JSON file", function()
-      -- First save a project
+      -- First save a project with no estimation
       local info = models.ProjectInfo.new("proj-1", "TestProject")
-      local task = models.Task.new("1", "Task 1", "Details", "1h", {"tag1"})
+      local task = models.Task.new("1", "Task 1", "Details", nil, {"tag1"}, "some notes")
       local project = models.Project.new(info, {}, {["1"] = task}, {}, {"project-tag"})
-      
+
       file_storage.save(project, test_dir)
-      
+
       -- Now load it
       local loaded_project, err = file_storage.load("TestProject", test_dir)
-      
+
       assert.is_nil(err)
       assert.is_not_nil(loaded_project)
       assert.are.equal("proj-1", loaded_project.project_info.id)
       assert.are.equal("TestProject", loaded_project.project_info.name)
       assert.are.equal("Task 1", loaded_project.task_list["1"].name)
+      assert.are.equal("some notes", loaded_project.task_list["1"].notes)
+      assert.is_nil(loaded_project.task_list["1"].estimation)
       assert.are.same({"project-tag"}, loaded_project.tags)
     end)
-    
+
     it("should return error if file doesn't exist", function()
       local loaded_project, err = file_storage.load("NonExistent", test_dir)
-      
+
       assert.is_nil(loaded_project)
       assert.is_not_nil(err)
       assert.is_true(string.match(err, "Failed to open file") ~= nil)
+    end)
+
+    it("should save and load structured estimation for Jobs", function()
+      local info = models.ProjectInfo.new("proj-1", "EstimationTest")
+
+      -- Create a structured estimation
+      local estimation = models.Estimation.new({
+        work_type = "new_work",
+        assumptions = {"API is stable", "No DB changes"},
+        effort = {
+          method = "three_point",
+          base_hours = 8,
+          buffer_percent = 25,
+          buffer_reason = "unknowns in requirements",
+          total_hours = 10
+        },
+        confidence = "med",
+        schedule = {
+          start_date = "2025-01-15",
+          target_finish = "2025-01-20",
+          milestones = {
+            { name = "Design complete", date = "2025-01-16" },
+            { name = "Implementation done", date = "2025-01-19" }
+          }
+        },
+        post_estimate_notes = {
+          could_be_smaller = {"Reuse existing component"},
+          could_be_bigger = {"API changes", "Scope creep"},
+          ignored_last_time = {"Testing time"}
+        }
+      })
+
+      local task = models.Task.new("1.1.1", "Implement Feature", "Feature details", estimation, {"feature"}, "additional notes")
+      local node = models.StructureNode.new("1.1.1", "Job", {})
+      local project = models.Project.new(info, {["1.1.1"] = node}, {["1.1.1"] = task}, {}, {})
+
+      -- Save
+      local success, err = file_storage.save(project, test_dir)
+      assert.is_true(success)
+      assert.is_nil(err)
+
+      -- Load
+      local loaded, load_err = file_storage.load("EstimationTest", test_dir)
+      assert.is_nil(load_err)
+      assert.is_not_nil(loaded)
+
+      -- Verify estimation was preserved
+      local loaded_task = loaded.task_list["1.1.1"]
+      assert.is_not_nil(loaded_task)
+      assert.is_not_nil(loaded_task.estimation)
+
+      local est = loaded_task.estimation
+      assert.are.equal("new_work", est.work_type)
+      assert.are.same({"API is stable", "No DB changes"}, est.assumptions)
+      assert.are.equal("three_point", est.effort.method)
+      assert.are.equal(8, est.effort.base_hours)
+      assert.are.equal(25, est.effort.buffer_percent)
+      assert.are.equal("unknowns in requirements", est.effort.buffer_reason)
+      assert.are.equal(10, est.effort.total_hours)
+      assert.are.equal("med", est.confidence)
+      assert.are.equal("2025-01-15", est.schedule.start_date)
+      assert.are.equal("2025-01-20", est.schedule.target_finish)
+      assert.are.equal(2, #est.schedule.milestones)
+      assert.are.equal("Design complete", est.schedule.milestones[1].name)
+      assert.are.equal("2025-01-16", est.schedule.milestones[1].date)
+      assert.are.same({"Reuse existing component"}, est.post_estimate_notes.could_be_smaller)
+      assert.are.same({"API changes", "Scope creep"}, est.post_estimate_notes.could_be_bigger)
+      assert.are.same({"Testing time"}, est.post_estimate_notes.ignored_last_time)
+      assert.are.equal("additional notes", loaded_task.notes)
+    end)
+
+    it("should migrate old string estimation to notes on load", function()
+      -- Manually create a JSON file with old format
+      local old_format_json = [[{
+        "project_info": {"id": "proj-1", "name": "MigrationTest"},
+        "structure": {"1": {"type": "Job"}},
+        "task_list": {
+          "1": {
+            "name": "Old Task",
+            "details": "Details",
+            "estimation": "2 hours",
+            "tags": ["bug"]
+          }
+        },
+        "time_log": [],
+        "tags": []
+      }]]
+
+      -- Write the old format file directly
+      local file = io.open(test_dir .. "/MigrationTest.json", "w")
+      file:write(old_format_json)
+      file:close()
+
+      -- Load it
+      local loaded, err = file_storage.load("MigrationTest", test_dir)
+
+      assert.is_nil(err)
+      assert.is_not_nil(loaded)
+
+      local task = loaded.task_list["1"]
+      assert.is_not_nil(task)
+      assert.are.equal("Old Task", task.name)
+      -- Old string estimation should be migrated to notes
+      assert.is_nil(task.estimation)
+      assert.are.equal("2 hours", task.notes)
+    end)
+
+    it("should preserve empty estimation as nil", function()
+      local info = models.ProjectInfo.new("proj-1", "NilEstTest")
+      local task = models.Task.new("1", "Task", "", nil, {}, "")
+      local project = models.Project.new(info, {}, {["1"] = task}, {}, {})
+
+      file_storage.save(project, test_dir)
+      local loaded, _ = file_storage.load("NilEstTest", test_dir)
+
+      assert.is_nil(loaded.task_list["1"].estimation)
     end)
   end)
   

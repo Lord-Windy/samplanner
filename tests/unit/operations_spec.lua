@@ -247,33 +247,46 @@ describe("Task Management", function()
   end)
 
   it("should create a task", function()
-    local task, err = operations.create_task(project, "task-1", "Test Task", "Details here", "2h", {"bug", "urgent"})
+    local models = require('samplanner.domain.models')
+    local estimation = models.Estimation.new({ work_type = "bugfix", confidence = "high" })
+    local task, err = operations.create_task(project, "task-1", "Test Task", "Details here", estimation, {"bug", "urgent"}, "some notes")
 
     assert.is_nil(err)
     assert.is_not_nil(task)
     assert.are.equal("task-1", task.id)
     assert.are.equal("Test Task", task.name)
     assert.are.equal("Details here", task.details)
-    assert.are.equal("2h", task.estimation)
+    assert.are.equal("bugfix", task.estimation.work_type)
+    assert.are.equal("high", task.estimation.confidence)
     assert.are.same({"bug", "urgent"}, task.tags)
+    assert.are.equal("some notes", task.notes)
+  end)
+
+  it("should create a task without estimation", function()
+    local task, err = operations.create_task(project, "task-2", "Test Task", "Details", nil, {"tag"}, "notes")
+
+    assert.is_nil(err)
+    assert.is_not_nil(task)
+    assert.is_nil(task.estimation)
+    assert.are.equal("notes", task.notes)
   end)
 
   it("should add task tags to project tags", function()
-    operations.create_task(project, "task-1", "Test", "", "", {"new-tag"})
+    operations.create_task(project, "task-1", "Test", "", nil, {"new-tag"}, "")
 
     assert.is_true(vim.tbl_contains(project.tags, "new-tag"))
   end)
 
   it("should not allow duplicate task IDs", function()
-    operations.create_task(project, "task-1", "First", "", "", {})
-    local task, err = operations.create_task(project, "task-1", "Second", "", "", {})
+    operations.create_task(project, "task-1", "First", "", nil, {}, "")
+    local task, err = operations.create_task(project, "task-1", "Second", "", nil, {}, "")
 
     assert.is_nil(task)
     assert.is_not_nil(err)
   end)
 
   it("should update a task", function()
-    operations.create_task(project, "task-1", "Original", "", "", {})
+    operations.create_task(project, "task-1", "Original", "", nil, {}, "")
 
     local task, err = operations.update_task(project, "task-1", {
       name = "Updated",
@@ -286,7 +299,7 @@ describe("Task Management", function()
   end)
 
   it("should delete a task", function()
-    operations.create_task(project, "task-1", "ToDelete", "", "", {})
+    operations.create_task(project, "task-1", "ToDelete", "", nil, {}, "")
 
     local success, err = operations.delete_task(project, "task-1")
 
@@ -297,7 +310,7 @@ describe("Task Management", function()
 
   it("should link task to node", function()
     operations.add_node(project, nil, "Area", "")
-    operations.create_task(project, "task-1", "Test Task", "", "", {})
+    operations.create_task(project, "task-1", "Test Task", "", nil, {}, "")
 
     local success, err = operations.link_task_to_node(project, "task-1", "1")
 
@@ -371,7 +384,7 @@ describe("Time Log Operations", function()
 
   it("should add task to session", function()
     operations.start_session(project)
-    operations.create_task(project, "task-1", "Test", "", "", {})
+    operations.create_task(project, "task-1", "Test", "", nil, {}, "")
 
     local success, err = operations.add_task_to_session(project, 1, "task-1")
 
@@ -449,7 +462,7 @@ describe("Tag Operations", function()
   end)
 
   it("should tag a task", function()
-    operations.create_task(project, "task-1", "Test", "", "", {})
+    operations.create_task(project, "task-1", "Test", "", nil, {}, "")
 
     local success, err = operations.tag_task(project, "task-1", "new-tag")
 

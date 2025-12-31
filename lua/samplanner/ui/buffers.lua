@@ -6,6 +6,28 @@ local structure_format = require('samplanner.formats.structure')
 
 local M = {}
 
+-- Helper to find node type for a task ID
+-- @param project: Project - The project
+-- @param task_id: string - Task ID to find
+-- @return string|nil - "Area", "Component", "Job", or nil if not found
+local function get_node_type(project, task_id)
+  local function search(subtasks)
+    for id, node in pairs(subtasks) do
+      if id == task_id then
+        return node.type
+      end
+      if node.subtasks and next(node.subtasks) then
+        local result = search(node.subtasks)
+        if result then
+          return result
+        end
+      end
+    end
+    return nil
+  end
+  return search(project.structure)
+end
+
 -- Track buffer state
 M.buffers = {}
 
@@ -54,6 +76,9 @@ function M.create_task_buffer(project, task_id, opts)
     return nil, "Task not found: " .. task_id
   end
 
+  -- Get the node type to determine if estimation should be shown
+  local node_type = get_node_type(project, task_id)
+
   local buf_name = string.format("samplanner://task/%s/%s",
     project.project_info.name, task_id)
 
@@ -66,7 +91,7 @@ function M.create_task_buffer(project, task_id, opts)
 
   local buf = create_scratch_buffer(buf_name, "samplanner_task")
   vim.api.nvim_buf_set_option(buf, 'buflisted', true)
-  local text = task_format.task_to_text(task)
+  local text = task_format.task_to_text(task, node_type)
   local lines = vim.split(text, "\n")
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.api.nvim_buf_set_option(buf, 'modified', false)
@@ -76,6 +101,7 @@ function M.create_task_buffer(project, task_id, opts)
     type = M.BUFFER_TYPES.TASK,
     project = project,
     task_id = task_id,
+    node_type = node_type,
   }
 
   -- Set up save autocmd
@@ -109,13 +135,14 @@ function M.save_task_buffer(buf)
 
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   local text = table.concat(lines, "\n")
-  local parsed = task_format.text_to_task(text)
+  local parsed = task_format.text_to_task(text, meta.node_type)
 
   -- Update the task
   local _, err = operations.update_task(meta.project, meta.task_id, {
     name = parsed.name,
     details = parsed.details,
     estimation = parsed.estimation,
+    notes = parsed.notes,
     tags = parsed.tags,
   })
 
@@ -315,7 +342,7 @@ function M.refresh_buffer(buf)
   if meta.type == M.BUFFER_TYPES.TASK then
     local task = meta.project.task_list[meta.task_id]
     if task then
-      local text = task_format.task_to_text(task)
+      local text = task_format.task_to_text(task, meta.node_type)
       local lines = vim.split(text, "\n")
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
       vim.api.nvim_buf_set_option(buf, 'modified', false)

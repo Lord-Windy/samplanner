@@ -12,22 +12,98 @@ function M.ProjectInfo.new(id, name)
   return self
 end
 
+-- Estimation model (for Jobs only)
+-- JSON: {
+--   "work_type": "new_work|change|bugfix|research",
+--   "assumptions": ["assumption 1", "assumption 2"],
+--   "effort": {
+--     "method": "similar_work|three_point|gut_feel",
+--     "base_hours": 0,
+--     "buffer_percent": 0,
+--     "buffer_reason": "",
+--     "total_hours": 0
+--   },
+--   "confidence": "low|med|high",
+--   "schedule": {
+--     "start_date": "",
+--     "target_finish": "",
+--     "milestones": [{"name": "", "date": ""}]
+--   },
+--   "post_estimate_notes": {
+--     "could_be_smaller": [""],
+--     "could_be_bigger": [""],
+--     "ignored_last_time": [""]
+--   }
+-- }
+M.Estimation = {}
+M.Estimation.__index = M.Estimation
+
+function M.Estimation.new(data)
+  data = data or {}
+  local self = setmetatable({}, M.Estimation)
+  self.work_type = data.work_type or ""
+  self.assumptions = data.assumptions or {}
+  self.effort = {
+    method = data.effort and data.effort.method or "",
+    base_hours = data.effort and data.effort.base_hours or 0,
+    buffer_percent = data.effort and data.effort.buffer_percent or 0,
+    buffer_reason = data.effort and data.effort.buffer_reason or "",
+    total_hours = data.effort and data.effort.total_hours or 0,
+  }
+  self.confidence = data.confidence or ""
+  self.schedule = {
+    start_date = data.schedule and data.schedule.start_date or "",
+    target_finish = data.schedule and data.schedule.target_finish or "",
+    milestones = data.schedule and data.schedule.milestones or {},
+  }
+  self.post_estimate_notes = {
+    could_be_smaller = data.post_estimate_notes and data.post_estimate_notes.could_be_smaller or {},
+    could_be_bigger = data.post_estimate_notes and data.post_estimate_notes.could_be_bigger or {},
+    ignored_last_time = data.post_estimate_notes and data.post_estimate_notes.ignored_last_time or {},
+  }
+  return self
+end
+
+-- Check if estimation has any meaningful data
+function M.Estimation:is_empty()
+  return self.work_type == ""
+    and #self.assumptions == 0
+    and self.effort.method == ""
+    and self.effort.base_hours == 0
+    and self.confidence == ""
+    and self.schedule.start_date == ""
+    and self.schedule.target_finish == ""
+    and #self.schedule.milestones == 0
+    and #self.post_estimate_notes.could_be_smaller == 0
+    and #self.post_estimate_notes.could_be_bigger == 0
+    and #self.post_estimate_notes.ignored_last_time == 0
+end
+
 -- Task model
 -- JSON: {
 --   "name": "name",
 --   "details": "description",
---   "estimation": "",
+--   "estimation": {...} or nil,
+--   "notes": "migrated old estimation or other notes",
 --   "tags": ["",""]
 -- }
 M.Task = {}
 M.Task.__index = M.Task
 
-function M.Task.new(id, name, details, estimation, tags)
+function M.Task.new(id, name, details, estimation, tags, notes)
   local self = setmetatable({}, M.Task)
   self.id = id or ""
   self.name = name or ""
   self.details = details or ""
-  self.estimation = estimation or ""
+  -- estimation is now an Estimation object (or nil for non-Jobs)
+  if estimation and type(estimation) == "table" and getmetatable(estimation) == M.Estimation then
+    self.estimation = estimation
+  elseif estimation and type(estimation) == "table" then
+    self.estimation = M.Estimation.new(estimation)
+  else
+    self.estimation = nil
+  end
+  self.notes = notes or ""
   self.tags = tags or {}
   return self
 end
@@ -123,12 +199,32 @@ function M.Project.from_table(data)
   local task_list = {}
   if data.task_list then
     for id, task_data in pairs(data.task_list) do
+      local estimation = nil
+      local notes = task_data.notes or ""
+
+      -- Handle estimation migration: if it's a string, move to notes
+      if task_data.estimation then
+        if type(task_data.estimation) == "string" and task_data.estimation ~= "" then
+          -- Old format: string estimation - migrate to notes
+          if notes ~= "" then
+            notes = task_data.estimation .. "\n\n" .. notes
+          else
+            notes = task_data.estimation
+          end
+          estimation = nil
+        elseif type(task_data.estimation) == "table" then
+          -- New format: structured estimation
+          estimation = M.Estimation.new(task_data.estimation)
+        end
+      end
+
       task_list[id] = M.Task.new(
         id,
         task_data.name,
         task_data.details,
-        task_data.estimation,
-        task_data.tags
+        estimation,
+        task_data.tags,
+        notes
       )
     end
   end

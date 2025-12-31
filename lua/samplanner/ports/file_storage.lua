@@ -33,10 +33,23 @@ local function project_to_table(project)
   -- Convert task_list
   local task_list = {}
   for id, task in pairs(project.task_list) do
+    local estimation_data = nil
+    if task.estimation then
+      estimation_data = {
+        work_type = task.estimation.work_type,
+        assumptions = task.estimation.assumptions,
+        effort = task.estimation.effort,
+        confidence = task.estimation.confidence,
+        schedule = task.estimation.schedule,
+        post_estimate_notes = task.estimation.post_estimate_notes,
+      }
+    end
+
     task_list[id] = {
       name = task.name,
       details = task.details,
-      estimation = task.estimation,
+      estimation = estimation_data,
+      notes = task.notes ~= "" and task.notes or nil,
       tags = task.tags
     }
   end

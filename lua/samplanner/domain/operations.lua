@@ -145,7 +145,7 @@ function M.add_node(project, parent_id, node_type, name)
 
   -- If name is provided, create an associated task
   if name and name ~= "" then
-    local task = models.Task.new(new_id, name, "", "", {})
+    local task = models.Task.new(new_id, name, "", nil, {}, "")
     project.task_list[new_id] = task
   end
 
@@ -404,15 +404,16 @@ end
 -- @param id: string - Task ID
 -- @param name: string - Task name
 -- @param details: string - Task description
--- @param estimation: string - Time estimation
+-- @param estimation: Estimation|nil - Structured estimation (for Jobs)
 -- @param tags: table - Array of tags
+-- @param notes: string - Additional notes
 -- @return Task, string - the created task or nil, and error message if failed
-function M.create_task(project, id, name, details, estimation, tags)
+function M.create_task(project, id, name, details, estimation, tags, notes)
   if project.task_list[id] then
     return nil, "Task already exists: " .. id
   end
 
-  local task = models.Task.new(id, name, details or "", estimation or "", tags or {})
+  local task = models.Task.new(id, name, details or "", estimation, tags or {}, notes or "")
   project.task_list[id] = task
 
   -- Add any new tags to project
@@ -436,7 +437,7 @@ end
 -- Modify existing task
 -- @param project: Project - The project to modify
 -- @param id: string - Task ID
--- @param updates: table - Fields to update {name?, details?, estimation?, tags?}
+-- @param updates: table - Fields to update {name?, details?, estimation?, notes?, tags?}
 -- @return Task, string - the updated task or nil, and error message if failed
 function M.update_task(project, id, updates)
   local task = project.task_list[id]
@@ -452,6 +453,9 @@ function M.update_task(project, id, updates)
   end
   if updates.estimation ~= nil then
     task.estimation = updates.estimation
+  end
+  if updates.notes ~= nil then
+    task.notes = updates.notes
   end
   if updates.tags ~= nil then
     task.tags = updates.tags

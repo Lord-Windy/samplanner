@@ -23,14 +23,53 @@ describe("ProjectInfo", function()
   end)
 end)
 
+describe("Estimation", function()
+  it("should create a new Estimation instance", function()
+    local est = models.Estimation.new({
+      work_type = "new_work",
+      assumptions = {"assumption 1"},
+      effort = { method = "gut_feel", base_hours = 4, buffer_percent = 20, buffer_reason = "unknowns", total_hours = 5 },
+      confidence = "med",
+      schedule = { start_date = "2025-01-01", target_finish = "2025-01-05", milestones = {} },
+      post_estimate_notes = { could_be_smaller = {}, could_be_bigger = {}, ignored_last_time = {} }
+    })
+    assert.are.equal("new_work", est.work_type)
+    assert.are.same({"assumption 1"}, est.assumptions)
+    assert.are.equal("gut_feel", est.effort.method)
+    assert.are.equal(4, est.effort.base_hours)
+    assert.are.equal("med", est.confidence)
+    assert.are.equal("2025-01-01", est.schedule.start_date)
+  end)
+
+  it("should use defaults for missing parameters", function()
+    local est = models.Estimation.new()
+    assert.are.equal("", est.work_type)
+    assert.are.same({}, est.assumptions)
+    assert.are.equal("", est.effort.method)
+    assert.are.equal(0, est.effort.base_hours)
+    assert.are.equal("", est.confidence)
+  end)
+
+  it("should detect empty estimation", function()
+    local est = models.Estimation.new()
+    assert.is_true(est:is_empty())
+
+    local est2 = models.Estimation.new({ work_type = "bugfix" })
+    assert.is_false(est2:is_empty())
+  end)
+end)
+
 describe("Task", function()
-  it("should create a new Task instance", function()
-    local task = models.Task.new("1.1", "Task Name", "Details", "2h", {"tag1", "tag2"})
+  it("should create a new Task instance with structured estimation", function()
+    local est = models.Estimation.new({ work_type = "new_work", confidence = "high" })
+    local task = models.Task.new("1.1", "Task Name", "Details", est, {"tag1", "tag2"}, "some notes")
     assert.are.equal("1.1", task.id)
     assert.are.equal("Task Name", task.name)
     assert.are.equal("Details", task.details)
-    assert.are.equal("2h", task.estimation)
+    assert.are.equal("new_work", task.estimation.work_type)
+    assert.are.equal("high", task.estimation.confidence)
     assert.are.same({"tag1", "tag2"}, task.tags)
+    assert.are.equal("some notes", task.notes)
   end)
 
   it("should use defaults for missing parameters", function()
@@ -38,8 +77,14 @@ describe("Task", function()
     assert.are.equal("", task.id)
     assert.are.equal("", task.name)
     assert.are.equal("", task.details)
-    assert.are.equal("", task.estimation)
+    assert.is_nil(task.estimation)
     assert.are.same({}, task.tags)
+    assert.are.equal("", task.notes)
+  end)
+
+  it("should accept estimation as table data", function()
+    local task = models.Task.new("1.1", "Task", "", { work_type = "bugfix" }, {}, "")
+    assert.are.equal("bugfix", task.estimation.work_type)
   end)
 end)
 
@@ -96,7 +141,7 @@ describe("Project", function()
     assert.are.same({"tag1"}, project.tags)
   end)
 
-  it("should create from table data", function()
+  it("should create from table data with new estimation format", function()
     local data = {
       project_info = {
         id = "proj-1",
@@ -112,7 +157,8 @@ describe("Project", function()
         ["1"] = {
           name = "Task 1",
           details = "Details",
-          estimation = "1h",
+          estimation = { work_type = "new_work", confidence = "high" },
+          notes = "some notes",
           tags = {"tag1"}
         }
       },
@@ -134,7 +180,31 @@ describe("Project", function()
     assert.are.equal("Test Project", project.project_info.name)
     assert.are.equal("Area", project.structure["1"].type)
     assert.are.equal("Task 1", project.task_list["1"].name)
+    assert.are.equal("new_work", project.task_list["1"].estimation.work_type)
+    assert.are.equal("some notes", project.task_list["1"].notes)
     assert.are.equal("2023-01-01T10:00:00Z", project.time_log[1].start_timestamp)
     assert.are.same({"project-tag"}, project.tags)
+  end)
+
+  it("should migrate old string estimation to notes", function()
+    local data = {
+      project_info = { id = "proj-1", name = "Test" },
+      structure = {},
+      task_list = {
+        ["1"] = {
+          name = "Task 1",
+          details = "Details",
+          estimation = "2h",  -- Old string format
+          tags = {}
+        }
+      },
+      time_log = {},
+      tags = {}
+    }
+
+    local project = models.Project.from_table(data)
+    -- Old estimation string should be migrated to notes
+    assert.is_nil(project.task_list["1"].estimation)
+    assert.are.equal("2h", project.task_list["1"].notes)
   end)
 end)
