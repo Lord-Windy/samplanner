@@ -89,7 +89,8 @@ end
 --   "dependencies": [],
 --   "approach": [],
 --   "risks": [],
---   "validation_test_plan": []
+--   "validation_test_plan": [],
+--   "completed": false
 -- }
 M.JobDetails = {}
 M.JobDetails.__index = M.JobDetails
@@ -106,6 +107,7 @@ function M.JobDetails.new(data)
   self.approach = data.approach or {}
   self.risks = data.risks or {}
   self.validation_test_plan = data.validation_test_plan or {}
+  self.completed = data.completed or false
   return self
 end
 
@@ -120,6 +122,7 @@ function M.JobDetails:is_empty()
     and #self.approach == 0
     and #self.risks == 0
     and #self.validation_test_plan == 0
+    and not self.completed
 end
 
 -- ComponentDetails model (structured details for Component type tasks)

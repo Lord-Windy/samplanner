@@ -11,6 +11,10 @@ M.state = {
   win = nil,
   collapsed = {},  -- Set of collapsed node IDs
   cursor_node_id = nil,
+  filters = {
+    show_completed_jobs = false,     -- Default: hide completed jobs
+    show_incomplete_jobs = true,     -- Default: show incomplete jobs
+  },
 }
 
 -- Sort keys for consistent display
@@ -45,6 +49,33 @@ local function has_children(node)
   return node.subtasks and next(node.subtasks) ~= nil
 end
 
+-- Check if a Job should be filtered based on completion status
+-- @param node: StructureNode - The node to check
+-- @param task: Task - The associated task (may be nil)
+-- @return boolean - true if the node should be filtered (hidden)
+local function should_filter_job(node, task)
+  -- Only filter Jobs
+  if node.type ~= "Job" then
+    return false
+  end
+
+  -- Get completion status
+  local is_completed = false
+  if task and task.details and type(task.details) == "table" and task.details.completed ~= nil then
+    is_completed = task.details.completed
+  end
+
+  -- Filter based on completion status and filter settings
+  if is_completed and not M.state.filters.show_completed_jobs then
+    return true  -- Hide completed jobs
+  end
+  if not is_completed and not M.state.filters.show_incomplete_jobs then
+    return true  -- Hide incomplete jobs
+  end
+
+  return false
+end
+
 -- Build tree lines with metadata
 -- @return table - Array of {line, node_id, depth, has_children, is_collapsed}
 local function build_tree_lines(project)
@@ -55,6 +86,12 @@ local function build_tree_lines(project)
     for _, id in ipairs(keys) do
       local node = subtasks[id]
       local task = project.task_list[id]
+
+      -- Check if this Job should be filtered
+      if should_filter_job(node, task) then
+        goto continue
+      end
+
       local name = task and task.name or ""
       local has_kids = has_children(node)
       local is_collapsed = M.state.collapsed[id] or false
@@ -76,8 +113,14 @@ local function build_tree_lines(project)
       }
       local type_icon = type_icons[node.type] or "?"
 
-      local line = string.format("%s%s [%s] %s: %s",
-        indent, fold_marker, type_icon, id, name)
+      -- Add completion indicator for Jobs
+      local completion_indicator = ""
+      if node.type == "Job" and task and task.details and type(task.details) == "table" and task.details.completed then
+        completion_indicator = "[✓] "
+      end
+
+      local line = string.format("%s%s [%s] %s: %s%s",
+        indent, fold_marker, type_icon, id, completion_indicator, name)
 
       table.insert(result, {
         line = line,
@@ -91,6 +134,8 @@ local function build_tree_lines(project)
       if has_kids and not is_collapsed then
         build_level(node.subtasks, depth + 1)
       end
+
+      ::continue::
     end
   end
 
@@ -111,9 +156,17 @@ function M.render()
   -- Header
   table.insert(lines, "# " .. M.state.project.project_info.name)
   table.insert(lines, "")
+
+  -- Filter status
+  local completed_status = M.state.filters.show_completed_jobs and "ON" or "OFF"
+  local incomplete_status = M.state.filters.show_incomplete_jobs and "ON" or "OFF"
+  table.insert(lines, string.format("Filters: Completed [%s]  Incomplete [%s]", completed_status, incomplete_status))
+  table.insert(lines, "")
+
   table.insert(lines, "Keybindings: a=add child, A=add sibling, d=delete, r=rename")
   table.insert(lines, "             J=move down, K=move up, >=indent, <=outdent")
   table.insert(lines, "             <CR>=open task, zo=expand, zc=collapse, zO=expand all, zC=collapse all")
+  table.insert(lines, "             tc=toggle completed, ti=toggle incomplete")
   table.insert(lines, "")
 
   local header_lines = #lines
@@ -385,6 +438,22 @@ function M.outdent()
   vim.notify("Outdented node: " .. node_id, vim.log.levels.INFO)
 end
 
+-- Toggle showing completed jobs
+function M.toggle_completed_filter()
+  M.state.filters.show_completed_jobs = not M.state.filters.show_completed_jobs
+  local status = M.state.filters.show_completed_jobs and "shown" or "hidden"
+  vim.notify("Completed jobs: " .. status, vim.log.levels.INFO)
+  M.render()
+end
+
+-- Toggle showing incomplete jobs
+function M.toggle_incomplete_filter()
+  M.state.filters.show_incomplete_jobs = not M.state.filters.show_incomplete_jobs
+  local status = M.state.filters.show_incomplete_jobs and "shown" or "hidden"
+  vim.notify("Incomplete jobs: " .. status, vim.log.levels.INFO)
+  M.render()
+end
+
 -- Set up keybindings for tree buffer
 local function setup_keymaps(buf)
   local opts = { buffer = buf, silent = true }
@@ -404,6 +473,8 @@ local function setup_keymaps(buf)
   vim.keymap.set('n', 'zO', M.expand_all, opts)
   vim.keymap.set('n', 'zC', M.collapse_all, opts)
   vim.keymap.set('n', '<Tab>', M.toggle_collapse, opts)
+  vim.keymap.set('n', 'tc', M.toggle_completed_filter, opts)
+  vim.keymap.set('n', 'ti', M.toggle_incomplete_filter, opts)
   vim.keymap.set('n', 'R', M.refresh, opts)
   vim.keymap.set('n', 'q', function()
     vim.api.nvim_win_close(0, true)

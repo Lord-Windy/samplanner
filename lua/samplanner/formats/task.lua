@@ -269,6 +269,10 @@ local function job_details_to_text(job_details)
   end
   table.insert(lines, "")
 
+  -- Completion status
+  table.insert(lines, string.format("%s Completed", checkbox(jd.completed)))
+  table.insert(lines, "")
+
   -- Outcome / Definition of Done section
   table.insert(lines, "Outcome / Definition of Done")
   if #jd.outcome_dod > 0 then
@@ -369,6 +373,7 @@ local function text_to_job_details(text)
     approach = {},
     risks = {},
     validation_test_plan = {},
+    completed = false,
   }
 
   local current_section = nil
@@ -381,6 +386,14 @@ local function text_to_job_details(text)
       current_section = "context"
       current_subsection = nil
       context_lines = {}
+    elseif line:match("^%[.%]%s+Completed$") then
+      -- Parse completion checkbox
+      jd.completed = line:match("^%[x%]") or line:match("^%[X%]")
+      if jd.completed then
+        jd.completed = true
+      else
+        jd.completed = false
+      end
     elseif line:match("^Outcome / Definition of Done$") then
       -- Save context before switching
       if current_section == "context" and #context_lines > 0 then

@@ -593,6 +593,30 @@ describe("JobDetails", function()
     local jd2 = models.JobDetails.new({ context_why = "Not empty" })
     assert.is_false(jd2:is_empty())
   end)
+
+  it("should default completed to false", function()
+    local jd = models.JobDetails.new()
+    assert.is_false(jd.completed)
+  end)
+
+  it("should accept completed parameter", function()
+    local jd = models.JobDetails.new({ completed = true })
+    assert.is_true(jd.completed)
+  end)
+
+  it("should not be empty when completed is true", function()
+    local jd = models.JobDetails.new({ completed = true })
+    assert.is_false(jd:is_empty())
+  end)
+
+  it("should handle completed status from table data", function()
+    local jd = models.JobDetails.new({
+      context_why = "Test",
+      completed = true
+    })
+    assert.is_true(jd.completed)
+    assert.are.equal("Test", jd.context_why)
+  end)
 end)
 
 describe("ComponentDetails", function()

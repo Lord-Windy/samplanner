@@ -293,4 +293,154 @@ enhancement
       assert.are.equal(original_est.schedule.start_date, parsed.estimation.schedule.start_date)
     end)
   end)
+
+  describe("Job completion tracking", function()
+    it("should format uncompleted job with empty checkbox", function()
+      local job_details = models.JobDetails.new({
+        context_why = "Test job",
+        completed = false
+      })
+      local task = models.Task.new("1", "Job Task", job_details, nil, {}, "")
+
+      local text = task_format.task_to_text(task, "Job")
+
+      assert.is_true(text:find("%[ %] Completed") ~= nil)
+    end)
+
+    it("should format completed job with checked checkbox", function()
+      local job_details = models.JobDetails.new({
+        context_why = "Test job",
+        completed = true
+      })
+      local task = models.Task.new("1", "Job Task", job_details, nil, {}, "")
+
+      local text = task_format.task_to_text(task, "Job")
+
+      assert.is_true(text:find("%[x%] Completed") ~= nil)
+    end)
+
+    it("should parse uncompleted job from text", function()
+      local text = [[
+── Task: 1 ───────────────────
+Name: Job Task
+
+── Details ──────────────────────────
+Context / Why
+Test job
+
+[ ] Completed
+
+Outcome / Definition of Done
+  -
+
+Scope
+  In scope:
+    -
+  Out of scope:
+    -
+
+Requirements / Constraints
+  -
+
+Dependencies
+  -
+
+Approach (brief plan)
+  -
+
+Risks
+  -
+
+Validation / Test Plan
+  -
+
+── Notes ────────────────────────────
+
+── Tags ─────────────────────────────
+]]
+
+      local task = task_format.text_to_task(text, "Job")
+
+      assert.are.equal("table", type(task.details))
+      assert.is_false(task.details.completed)
+    end)
+
+    it("should parse completed job from text", function()
+      local text = [[
+── Task: 1 ───────────────────
+Name: Job Task
+
+── Details ──────────────────────────
+Context / Why
+Test job
+
+[x] Completed
+
+Outcome / Definition of Done
+  -
+
+Scope
+  In scope:
+    -
+  Out of scope:
+    -
+
+Requirements / Constraints
+  -
+
+Dependencies
+  -
+
+Approach (brief plan)
+  -
+
+Risks
+  -
+
+Validation / Test Plan
+  -
+
+── Notes ────────────────────────────
+
+── Tags ─────────────────────────────
+]]
+
+      local task = task_format.text_to_task(text, "Job")
+
+      assert.are.equal("table", type(task.details))
+      assert.is_true(task.details.completed)
+    end)
+
+    it("should roundtrip completed status", function()
+      local job_details = models.JobDetails.new({
+        context_why = "Completed job",
+        outcome_dod = {"Done"},
+        completed = true
+      })
+      local original = models.Task.new("1", "Job Task", job_details, nil, {}, "")
+
+      local text = task_format.task_to_text(original, "Job")
+      local parsed = task_format.text_to_task(text, "Job")
+
+      assert.are.equal("table", type(parsed.details))
+      assert.is_true(parsed.details.completed)
+      assert.are.equal("Completed job", parsed.details.context_why)
+      assert.are.same({"Done"}, parsed.details.outcome_dod)
+    end)
+
+    it("should roundtrip uncompleted status", function()
+      local job_details = models.JobDetails.new({
+        context_why = "Incomplete job",
+        completed = false
+      })
+      local original = models.Task.new("1", "Job Task", job_details, nil, {}, "")
+
+      local text = task_format.task_to_text(original, "Job")
+      local parsed = task_format.text_to_task(text, "Job")
+
+      assert.are.equal("table", type(parsed.details))
+      assert.is_false(parsed.details.completed)
+      assert.are.equal("Incomplete job", parsed.details.context_why)
+    end)
+  end)
 end)
