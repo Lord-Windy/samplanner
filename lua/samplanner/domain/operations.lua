@@ -537,7 +537,23 @@ end
 -- @return number, string - the session index or nil, and error message if failed
 function M.start_session(project)
   local timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
-  local session = models.TimeLog.new(timestamp, "", "", "", 0, {})
+  local session = models.TimeLog.new(
+    timestamp,  -- start_timestamp
+    "",         -- end_timestamp
+    "",         -- notes
+    "",         -- interruptions
+    0,          -- interruption_minutes
+    {},         -- tasks
+    "",         -- session_type
+    0,          -- planned_duration_minutes
+    0,          -- focus_rating
+    { start = 0, ["end"] = 0 },  -- energy_level
+    0,          -- context_switches
+    { found = {}, fixed = {} },  -- defects
+    {},         -- deliverables
+    {},         -- blockers
+    { what_went_well = {}, what_needs_improvement = {}, lessons_learned = {} }  -- retrospective
+  )
 
   table.insert(project.time_log, session)
   local session_index = #project.time_log
@@ -579,7 +595,7 @@ end
 -- Modify session notes/interruptions
 -- @param project: Project - The project to modify
 -- @param session_index: number - The session index
--- @param updates: table - Fields to update {notes?, interruptions?, interruption_minutes?}
+-- @param updates: table - Fields to update {notes?, interruptions?, interruption_minutes?, session_type?, planned_duration_minutes?, focus_rating?, energy_level?, context_switches?, defects?, deliverables?, blockers?, retrospective?}
 -- @return TimeLog, string - the updated session or nil, and error message if failed
 function M.update_session(project, session_index, updates)
   local session = project.time_log[session_index]
@@ -595,6 +611,33 @@ function M.update_session(project, session_index, updates)
   end
   if updates.interruption_minutes ~= nil then
     session.interruption_minutes = updates.interruption_minutes
+  end
+  if updates.session_type ~= nil then
+    session.session_type = updates.session_type
+  end
+  if updates.planned_duration_minutes ~= nil then
+    session.planned_duration_minutes = updates.planned_duration_minutes
+  end
+  if updates.focus_rating ~= nil then
+    session.focus_rating = updates.focus_rating
+  end
+  if updates.energy_level ~= nil then
+    session.energy_level = updates.energy_level
+  end
+  if updates.context_switches ~= nil then
+    session.context_switches = updates.context_switches
+  end
+  if updates.defects ~= nil then
+    session.defects = updates.defects
+  end
+  if updates.deliverables ~= nil then
+    session.deliverables = updates.deliverables
+  end
+  if updates.blockers ~= nil then
+    session.blockers = updates.blockers
+  end
+  if updates.retrospective ~= nil then
+    session.retrospective = updates.retrospective
   end
 
   -- Save the project

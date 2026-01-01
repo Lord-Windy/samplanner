@@ -339,6 +339,117 @@ describe("FileStorage", function()
       local loaded, _ = file_storage.load("NoNotesTest", test_dir)
       assert.are.equal("", loaded.notes)
     end)
+
+    it("should save and load sessions with new PSP and productivity fields", function()
+      local info = models.ProjectInfo.new("proj-1", "SessionFieldsTest")
+
+      -- Create a session with all new fields populated
+      local session = models.TimeLog.new(
+        "2025-01-01T10:00:00Z",
+        "2025-01-01T11:30:00Z",
+        "Made good progress",
+        "Phone call",
+        10,
+        {"1.1"},
+        "coding",
+        90,
+        4,
+        { start = 5, ["end"] = 3 },
+        2,
+        { found = {"Bug in parser"}, fixed = {"Fixed parser bug"} },
+        {"Session tracking feature", "Updated tests"},
+        {"Unclear requirements"},
+        {
+          what_went_well = {"Good test coverage"},
+          what_needs_improvement = {"Need better planning"},
+          lessons_learned = {"Always read requirements twice"}
+        }
+      )
+
+      local project = models.Project.new(info, {}, {}, {session}, {})
+
+      -- Save and load
+      local success, err = file_storage.save(project, test_dir)
+      assert.is_true(success, err)
+
+      local loaded, load_err = file_storage.load("SessionFieldsTest", test_dir)
+      assert.is_not_nil(loaded, load_err)
+
+      -- Verify the session was preserved
+      assert.are.equal(1, #loaded.time_log)
+      local loaded_session = loaded.time_log[1]
+
+      -- Verify all fields
+      assert.are.equal("2025-01-01T10:00:00Z", loaded_session.start_timestamp)
+      assert.are.equal("2025-01-01T11:30:00Z", loaded_session.end_timestamp)
+      assert.are.equal("Made good progress", loaded_session.notes)
+      assert.are.equal("Phone call", loaded_session.interruptions)
+      assert.are.equal(10, loaded_session.interruption_minutes)
+      assert.are.same({"1.1"}, loaded_session.tasks)
+
+      -- Verify new fields
+      assert.are.equal("coding", loaded_session.session_type)
+      assert.are.equal(90, loaded_session.planned_duration_minutes)
+      assert.are.equal(4, loaded_session.focus_rating)
+      assert.are.equal(5, loaded_session.energy_level.start)
+      assert.are.equal(3, loaded_session.energy_level["end"])
+      assert.are.equal(2, loaded_session.context_switches)
+
+      assert.are.same({"Bug in parser"}, loaded_session.defects.found)
+      assert.are.same({"Fixed parser bug"}, loaded_session.defects.fixed)
+      assert.are.same({"Session tracking feature", "Updated tests"}, loaded_session.deliverables)
+      assert.are.same({"Unclear requirements"}, loaded_session.blockers)
+      assert.are.same({"Good test coverage"}, loaded_session.retrospective.what_went_well)
+      assert.are.same({"Need better planning"}, loaded_session.retrospective.what_needs_improvement)
+      assert.are.same({"Always read requirements twice"}, loaded_session.retrospective.lessons_learned)
+    end)
+
+    it("should handle loading old sessions without new fields", function()
+      local info = models.ProjectInfo.new("proj-1", "OldSessionTest")
+
+      -- Create a project file manually with old session format (no new fields)
+      local old_json = [[{
+  "project_info": {"id": "proj-1", "name": "OldSessionTest"},
+  "structure": {},
+  "task_list": {},
+  "time_log": [
+    {
+      "start_timestamp": "2025-01-01T10:00:00Z",
+      "end_timestamp": "2025-01-01T11:00:00Z",
+      "notes": "Old session",
+      "interruptions": "",
+      "interruption_minutes": 0,
+      "tasks": []
+    }
+  ],
+  "tags": []
+}]]
+
+      -- Write the old format JSON directly
+      local file = io.open(test_dir .. "/OldSessionTest.json", "w")
+      file:write(old_json)
+      file:close()
+
+      -- Load should succeed and add defaults for new fields
+      local loaded, err = file_storage.load("OldSessionTest", test_dir)
+      assert.is_not_nil(loaded, err)
+
+      local session = loaded.time_log[1]
+      assert.are.equal("Old session", session.notes)
+
+      -- New fields should have default values
+      assert.are.equal("", session.session_type)
+      assert.are.equal(0, session.planned_duration_minutes)
+      assert.are.equal(0, session.focus_rating)
+      assert.are.equal(0, session.energy_level.start)
+      assert.are.equal(0, session.energy_level["end"])
+      assert.are.equal(0, session.context_switches)
+      assert.are.same({}, session.defects.found)
+      assert.are.same({}, session.defects.fixed)
+      assert.are.same({}, session.deliverables)
+      assert.are.same({}, session.blockers)
+      assert.are.same({}, session.retrospective.what_went_well)
+    end)
   end)
   
   describe("list_projects", function()

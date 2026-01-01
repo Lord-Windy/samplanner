@@ -153,6 +153,56 @@ describe("TimeLog", function()
     assert.are.equal(0, log.interruption_minutes)
     assert.are.same({}, log.tasks)
   end)
+
+  it("should create TimeLog with new PSP and productivity fields", function()
+    local log = models.TimeLog.new(
+      "2023-01-01T10:00:00Z",
+      "2023-01-01T11:00:00Z",
+      "Work notes",
+      "Phone call",
+      15,
+      {"1.1", "1.2"},
+      "coding",
+      60,
+      4,
+      { start = 5, ["end"] = 3 },
+      2,
+      { found = {"Bug 1"}, fixed = {"Bug 2"} },
+      {"Feature A", "Feature B"},
+      {"Blocker 1"},
+      { what_went_well = {"Good progress"}, what_needs_improvement = {"Better planning"}, lessons_learned = {"Test early"} }
+    )
+    assert.are.equal("coding", log.session_type)
+    assert.are.equal(60, log.planned_duration_minutes)
+    assert.are.equal(4, log.focus_rating)
+    assert.are.equal(5, log.energy_level.start)
+    assert.are.equal(3, log.energy_level["end"])
+    assert.are.equal(2, log.context_switches)
+    assert.are.same({"Bug 1"}, log.defects.found)
+    assert.are.same({"Bug 2"}, log.defects.fixed)
+    assert.are.same({"Feature A", "Feature B"}, log.deliverables)
+    assert.are.same({"Blocker 1"}, log.blockers)
+    assert.are.same({"Good progress"}, log.retrospective.what_went_well)
+    assert.are.same({"Better planning"}, log.retrospective.what_needs_improvement)
+    assert.are.same({"Test early"}, log.retrospective.lessons_learned)
+  end)
+
+  it("should use defaults for new fields when not provided", function()
+    local log = models.TimeLog.new("2023-01-01T10:00:00Z", "2023-01-01T11:00:00Z")
+    assert.are.equal("", log.session_type)
+    assert.are.equal(0, log.planned_duration_minutes)
+    assert.are.equal(0, log.focus_rating)
+    assert.are.equal(0, log.energy_level.start)
+    assert.are.equal(0, log.energy_level["end"])
+    assert.are.equal(0, log.context_switches)
+    assert.are.same({}, log.defects.found)
+    assert.are.same({}, log.defects.fixed)
+    assert.are.same({}, log.deliverables)
+    assert.are.same({}, log.blockers)
+    assert.are.same({}, log.retrospective.what_went_well)
+    assert.are.same({}, log.retrospective.what_needs_improvement)
+    assert.are.same({}, log.retrospective.lessons_learned)
+  end)
 end)
 
 describe("Project", function()

@@ -43,6 +43,18 @@ function M.session_to_text(time_log)
   table.insert(lines, "── Session ──────────────────────────")
   table.insert(lines, "Start: " .. format_timestamp(time_log.start_timestamp))
   table.insert(lines, "End:   " .. format_timestamp(time_log.end_timestamp))
+  table.insert(lines, "Type:  " .. (time_log.session_type or ""))
+  table.insert(lines, "Planned Duration (min): " .. (time_log.planned_duration_minutes or 0))
+  table.insert(lines, "")
+
+  -- Productivity metrics
+  table.insert(lines, "── Productivity Metrics ─────────────")
+  table.insert(lines, "Focus Rating (1-5): " .. (time_log.focus_rating or 0))
+  local energy_start = time_log.energy_level and time_log.energy_level.start or 0
+  local energy_end = time_log.energy_level and time_log.energy_level["end"] or 0
+  table.insert(lines, "Energy Level Start (1-5): " .. energy_start)
+  table.insert(lines, "Energy Level End (1-5): " .. energy_end)
+  table.insert(lines, "Context Switches: " .. (time_log.context_switches or 0))
   table.insert(lines, "")
 
   -- Notes section
@@ -63,6 +75,62 @@ function M.session_to_text(time_log)
   end
   table.insert(lines, "")
 
+  -- Deliverables section
+  table.insert(lines, "── Deliverables ─────────────────────")
+  if time_log.deliverables and #time_log.deliverables > 0 then
+    for _, deliverable in ipairs(time_log.deliverables) do
+      table.insert(lines, "- " .. deliverable)
+    end
+  end
+  table.insert(lines, "")
+
+  -- Defects section
+  table.insert(lines, "── Defects ──────────────────────────")
+  table.insert(lines, "Found:")
+  if time_log.defects and time_log.defects.found and #time_log.defects.found > 0 then
+    for _, defect in ipairs(time_log.defects.found) do
+      table.insert(lines, "  - " .. defect)
+    end
+  end
+  table.insert(lines, "Fixed:")
+  if time_log.defects and time_log.defects.fixed and #time_log.defects.fixed > 0 then
+    for _, defect in ipairs(time_log.defects.fixed) do
+      table.insert(lines, "  - " .. defect)
+    end
+  end
+  table.insert(lines, "")
+
+  -- Blockers section
+  table.insert(lines, "── Blockers ─────────────────────────")
+  if time_log.blockers and #time_log.blockers > 0 then
+    for _, blocker in ipairs(time_log.blockers) do
+      table.insert(lines, "- " .. blocker)
+    end
+  end
+  table.insert(lines, "")
+
+  -- Retrospective section
+  table.insert(lines, "── Retrospective ────────────────────")
+  table.insert(lines, "What Went Well:")
+  if time_log.retrospective and time_log.retrospective.what_went_well and #time_log.retrospective.what_went_well > 0 then
+    for _, item in ipairs(time_log.retrospective.what_went_well) do
+      table.insert(lines, "  - " .. item)
+    end
+  end
+  table.insert(lines, "What Needs Improvement:")
+  if time_log.retrospective and time_log.retrospective.what_needs_improvement and #time_log.retrospective.what_needs_improvement > 0 then
+    for _, item in ipairs(time_log.retrospective.what_needs_improvement) do
+      table.insert(lines, "  - " .. item)
+    end
+  end
+  table.insert(lines, "Lessons Learned:")
+  if time_log.retrospective and time_log.retrospective.lessons_learned and #time_log.retrospective.lessons_learned > 0 then
+    for _, item in ipairs(time_log.retrospective.lessons_learned) do
+      table.insert(lines, "  - " .. item)
+    end
+  end
+  table.insert(lines, "")
+
   -- Tasks section
   table.insert(lines, "── Tasks ────────────────────────────")
   if time_log.tasks and #time_log.tasks > 0 then
@@ -80,18 +148,31 @@ end
 function M.text_to_session(text)
   local start_timestamp = ""
   local end_timestamp = ""
+  local session_type = ""
+  local planned_duration_minutes = 0
+  local focus_rating = 0
+  local energy_level = { start = 0, ["end"] = 0 }
+  local context_switches = 0
   local notes = ""
   local interruptions = ""
   local interruption_minutes = 0
+  local deliverables = {}
+  local defects = { found = {}, fixed = {} }
+  local blockers = {}
+  local retrospective = { what_went_well = {}, what_needs_improvement = {}, lessons_learned = {} }
   local tasks = {}
 
   local current_section = nil
+  local current_subsection = nil
   local section_content = {}
 
   for line in text:gmatch("[^\r\n]*") do
     -- Check for section headers
     if line:match("^── Session") then
       current_section = "session"
+      section_content = {}
+    elseif line:match("^── Productivity Metrics") then
+      current_section = "metrics"
       section_content = {}
     elseif line:match("^── Notes") then
       current_section = "notes"
@@ -104,11 +185,25 @@ function M.text_to_session(text)
       end
       current_section = "interruptions"
       section_content = {}
+    elseif line:match("^── Deliverables") then
+      current_section = "deliverables"
+      section_content = {}
+    elseif line:match("^── Defects") then
+      current_section = "defects"
+      current_subsection = nil
+      section_content = {}
+    elseif line:match("^── Blockers") then
+      current_section = "blockers"
+      section_content = {}
+    elseif line:match("^── Retrospective") then
+      current_section = "retrospective"
+      current_subsection = nil
+      section_content = {}
     elseif line:match("^── Tasks") then
       current_section = "tasks"
       section_content = {}
     elseif current_section == "session" then
-      -- Parse start/end timestamps
+      -- Parse session fields
       local start_val = line:match("^Start:%s*(.+)$")
       if start_val then
         start_timestamp = parse_timestamp(vim.trim(start_val))
@@ -116,6 +211,32 @@ function M.text_to_session(text)
       local end_val = line:match("^End:%s*(.+)$")
       if end_val then
         end_timestamp = parse_timestamp(vim.trim(end_val))
+      end
+      local type_val = line:match("^Type:%s*(.+)$")
+      if type_val then
+        session_type = vim.trim(type_val)
+      end
+      local planned_val = line:match("^Planned Duration %(min%):%s*(%d+)")
+      if planned_val then
+        planned_duration_minutes = tonumber(planned_val) or 0
+      end
+    elseif current_section == "metrics" then
+      -- Parse productivity metrics
+      local focus_val = line:match("^Focus Rating %(1%-5%):%s*(%d+)")
+      if focus_val then
+        focus_rating = tonumber(focus_val) or 0
+      end
+      local energy_start_val = line:match("^Energy Level Start %(1%-5%):%s*(%d+)")
+      if energy_start_val then
+        energy_level.start = tonumber(energy_start_val) or 0
+      end
+      local energy_end_val = line:match("^Energy Level End %(1%-5%):%s*(%d+)")
+      if energy_end_val then
+        energy_level["end"] = tonumber(energy_end_val) or 0
+      end
+      local context_val = line:match("^Context Switches:%s*(%d+)")
+      if context_val then
+        context_switches = tonumber(context_val) or 0
       end
     elseif current_section == "notes" then
       if line ~= "" then
@@ -127,6 +248,50 @@ function M.text_to_session(text)
         table.insert(section_content, line)
       end
       interruptions = table.concat(section_content, "\n")
+    elseif current_section == "deliverables" then
+      local item = line:match("^%-%s*(.+)$")
+      if item then
+        table.insert(deliverables, vim.trim(item))
+      end
+    elseif current_section == "defects" then
+      if line:match("^Found:") then
+        current_subsection = "found"
+      elseif line:match("^Fixed:") then
+        current_subsection = "fixed"
+      else
+        local item = line:match("^%s*%-%s*(.+)$")
+        if item then
+          if current_subsection == "found" then
+            table.insert(defects.found, vim.trim(item))
+          elseif current_subsection == "fixed" then
+            table.insert(defects.fixed, vim.trim(item))
+          end
+        end
+      end
+    elseif current_section == "blockers" then
+      local item = line:match("^%-%s*(.+)$")
+      if item then
+        table.insert(blockers, vim.trim(item))
+      end
+    elseif current_section == "retrospective" then
+      if line:match("^What Went Well:") then
+        current_subsection = "what_went_well"
+      elseif line:match("^What Needs Improvement:") then
+        current_subsection = "what_needs_improvement"
+      elseif line:match("^Lessons Learned:") then
+        current_subsection = "lessons_learned"
+      else
+        local item = line:match("^%s*%-%s*(.+)$")
+        if item then
+          if current_subsection == "what_went_well" then
+            table.insert(retrospective.what_went_well, vim.trim(item))
+          elseif current_subsection == "what_needs_improvement" then
+            table.insert(retrospective.what_needs_improvement, vim.trim(item))
+          elseif current_subsection == "lessons_learned" then
+            table.insert(retrospective.lessons_learned, vim.trim(item))
+          end
+        end
+      end
     elseif current_section == "tasks" then
       -- Parse task IDs (lines starting with "- ")
       local task_id = line:match("^%-%s*(.+)$")
@@ -142,7 +307,16 @@ function M.text_to_session(text)
     notes,
     interruptions,
     interruption_minutes,
-    tasks
+    tasks,
+    session_type,
+    planned_duration_minutes,
+    focus_rating,
+    energy_level,
+    context_switches,
+    defects,
+    deliverables,
+    blockers,
+    retrospective
   )
 end
 

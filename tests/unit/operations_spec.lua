@@ -382,6 +382,41 @@ describe("Time Log Operations", function()
     assert.are.equal(15, session.interruption_minutes)
   end)
 
+  it("should update session with new PSP and productivity fields", function()
+    operations.start_session(project)
+
+    local session, err = operations.update_session(project, 1, {
+      session_type = "testing",
+      planned_duration_minutes = 120,
+      focus_rating = 5,
+      energy_level = { start = 4, ["end"] = 3 },
+      context_switches = 3,
+      defects = { found = {"Bug 1", "Bug 2"}, fixed = {"Bug 3"} },
+      deliverables = {"Feature A", "Feature B"},
+      blockers = {"Waiting on API"},
+      retrospective = {
+        what_went_well = {"Good tests"},
+        what_needs_improvement = {"Documentation"},
+        lessons_learned = {"Test first"}
+      }
+    })
+
+    assert.is_nil(err)
+    assert.are.equal("testing", session.session_type)
+    assert.are.equal(120, session.planned_duration_minutes)
+    assert.are.equal(5, session.focus_rating)
+    assert.are.equal(4, session.energy_level.start)
+    assert.are.equal(3, session.energy_level["end"])
+    assert.are.equal(3, session.context_switches)
+    assert.are.same({"Bug 1", "Bug 2"}, session.defects.found)
+    assert.are.same({"Bug 3"}, session.defects.fixed)
+    assert.are.same({"Feature A", "Feature B"}, session.deliverables)
+    assert.are.same({"Waiting on API"}, session.blockers)
+    assert.are.same({"Good tests"}, session.retrospective.what_went_well)
+    assert.are.same({"Documentation"}, session.retrospective.what_needs_improvement)
+    assert.are.same({"Test first"}, session.retrospective.lessons_learned)
+  end)
+
   it("should add task to session", function()
     operations.start_session(project)
     operations.create_task(project, "task-1", "Test", "", nil, {}, "")

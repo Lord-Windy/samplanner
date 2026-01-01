@@ -290,12 +290,21 @@ end
 --   "notes": "",
 --   "interruptions": "",
 --   "interruption_minutes": 0,
---   "tasks": ["links to task_list"]
+--   "tasks": ["links to task_list"],
+--   "session_type": "coding|testing|debugging|planning|design|review|research|meeting|admin",
+--   "planned_duration_minutes": 0,
+--   "focus_rating": 0,
+--   "energy_level": { "start": 0, "end": 0 },
+--   "context_switches": 0,
+--   "defects": { "found": [], "fixed": [] },
+--   "deliverables": [],
+--   "blockers": [],
+--   "retrospective": { "what_went_well": [], "what_needs_improvement": [], "lessons_learned": [] }
 -- }
 M.TimeLog = {}
 M.TimeLog.__index = M.TimeLog
 
-function M.TimeLog.new(start_timestamp, end_timestamp, notes, interruptions, interruption_minutes, tasks)
+function M.TimeLog.new(start_timestamp, end_timestamp, notes, interruptions, interruption_minutes, tasks, session_type, planned_duration_minutes, focus_rating, energy_level, context_switches, defects, deliverables, blockers, retrospective)
   local self = setmetatable({}, M.TimeLog)
   self.start_timestamp = start_timestamp or ""
   self.end_timestamp = end_timestamp or ""
@@ -303,6 +312,15 @@ function M.TimeLog.new(start_timestamp, end_timestamp, notes, interruptions, int
   self.interruptions = interruptions or ""
   self.interruption_minutes = interruption_minutes or 0
   self.tasks = tasks or {}  -- array of task IDs
+  self.session_type = session_type or ""
+  self.planned_duration_minutes = planned_duration_minutes or 0
+  self.focus_rating = focus_rating or 0
+  self.energy_level = energy_level or { start = 0, ["end"] = 0 }
+  self.context_switches = context_switches or 0
+  self.defects = defects or { found = {}, fixed = {} }
+  self.deliverables = deliverables or {}
+  self.blockers = blockers or {}
+  self.retrospective = retrospective or { what_went_well = {}, what_needs_improvement = {}, lessons_learned = {} }
   return self
 end
 
@@ -538,7 +556,16 @@ function M.Project.from_table(data)
         log_data.notes,
         log_data.interruptions,
         log_data.interruption_minutes,
-        log_data.tasks
+        log_data.tasks,
+        log_data.session_type,
+        log_data.planned_duration_minutes,
+        log_data.focus_rating,
+        log_data.energy_level,
+        log_data.context_switches,
+        log_data.defects,
+        log_data.deliverables,
+        log_data.blockers,
+        log_data.retrospective
       )
     end
   end

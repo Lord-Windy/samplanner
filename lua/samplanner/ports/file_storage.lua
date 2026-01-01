@@ -63,7 +63,16 @@ local function project_to_table(project)
       notes = log.notes,
       interruptions = log.interruptions,
       interruption_minutes = log.interruption_minutes,
-      tasks = log.tasks
+      tasks = log.tasks,
+      session_type = log.session_type,
+      planned_duration_minutes = log.planned_duration_minutes,
+      focus_rating = log.focus_rating,
+      energy_level = log.energy_level,
+      context_switches = log.context_switches,
+      defects = log.defects,
+      deliverables = log.deliverables,
+      blockers = log.blockers,
+      retrospective = log.retrospective
     }
   end
 
