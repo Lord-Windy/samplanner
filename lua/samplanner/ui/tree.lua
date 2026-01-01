@@ -112,6 +112,7 @@ function M.render()
   table.insert(lines, "# " .. M.state.project.project_info.name)
   table.insert(lines, "")
   table.insert(lines, "Keybindings: a=add child, A=add sibling, d=delete, r=rename")
+  table.insert(lines, "             J=move down, K=move up, >=indent, <=outdent")
   table.insert(lines, "             <CR>=open task, zo=expand, zc=collapse, zO=expand all, zC=collapse all")
   table.insert(lines, "")
 
@@ -324,6 +325,66 @@ function M.rename_node()
   end)
 end
 
+-- Move node down (swap with next sibling)
+function M.move_down()
+  local node_id = M.get_node_at_cursor()
+  if not node_id then return end
+
+  local success, err = operations.swap_siblings(M.state.project, node_id, "down")
+  if not success then
+    vim.notify(err, vim.log.levels.WARN)
+    return
+  end
+
+  M.render()
+  vim.notify("Moved node down: " .. node_id, vim.log.levels.INFO)
+end
+
+-- Move node up (swap with previous sibling)
+function M.move_up()
+  local node_id = M.get_node_at_cursor()
+  if not node_id then return end
+
+  local success, err = operations.swap_siblings(M.state.project, node_id, "up")
+  if not success then
+    vim.notify(err, vim.log.levels.WARN)
+    return
+  end
+
+  M.render()
+  vim.notify("Moved node up: " .. node_id, vim.log.levels.INFO)
+end
+
+-- Indent node (move under previous sibling)
+function M.indent()
+  local node_id = M.get_node_at_cursor()
+  if not node_id then return end
+
+  local success, err = operations.indent_node(M.state.project, node_id)
+  if not success then
+    vim.notify(err, vim.log.levels.WARN)
+    return
+  end
+
+  M.render()
+  vim.notify("Indented node: " .. node_id, vim.log.levels.INFO)
+end
+
+-- Outdent node (move to parent's level)
+function M.outdent()
+  local node_id = M.get_node_at_cursor()
+  if not node_id then return end
+
+  local success, err = operations.outdent_node(M.state.project, node_id)
+  if not success then
+    vim.notify(err, vim.log.levels.WARN)
+    return
+  end
+
+  M.render()
+  vim.notify("Outdented node: " .. node_id, vim.log.levels.INFO)
+end
+
 -- Set up keybindings for tree buffer
 local function setup_keymaps(buf)
   local opts = { buffer = buf, silent = true }
@@ -334,6 +395,10 @@ local function setup_keymaps(buf)
   vim.keymap.set('n', 'A', M.add_sibling, opts)
   vim.keymap.set('n', 'd', M.delete_node, opts)
   vim.keymap.set('n', 'r', M.rename_node, opts)
+  vim.keymap.set('n', 'J', M.move_down, opts)
+  vim.keymap.set('n', 'K', M.move_up, opts)
+  vim.keymap.set('n', '>', M.indent, opts)
+  vim.keymap.set('n', '<', M.outdent, opts)
   vim.keymap.set('n', 'zo', M.expand, opts)
   vim.keymap.set('n', 'zc', M.collapse, opts)
   vim.keymap.set('n', 'zO', M.expand_all, opts)

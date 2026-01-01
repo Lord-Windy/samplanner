@@ -338,6 +338,238 @@ function M.renumber_structure(project)
   return true, nil
 end
 
+-- Swap node with adjacent sibling
+-- @param project: Project - The project to modify
+-- @param node_id: string - The node ID to move
+-- @param direction: string - "up" or "down"
+-- @return boolean, string - success status and error message if failed
+function M.swap_siblings(project, node_id, direction)
+  local node, parent_subtasks, parent_id = find_node(project.structure, node_id)
+  if not node then
+    return false, "Node not found: " .. node_id
+  end
+
+  -- Get sorted list of siblings
+  local function sorted_keys(t)
+    local keys = {}
+    for k in pairs(t) do
+      table.insert(keys, k)
+    end
+    table.sort(keys, function(a, b)
+      local a_num = tonumber(a:match("(%d+)$")) or 0
+      local b_num = tonumber(b:match("(%d+)$")) or 0
+      return a_num < b_num
+    end)
+    return keys
+  end
+
+  local siblings = sorted_keys(parent_subtasks)
+  local current_index = nil
+  for i, id in ipairs(siblings) do
+    if id == node_id then
+      current_index = i
+      break
+    end
+  end
+
+  if not current_index then
+    return false, "Node not found in parent's children"
+  end
+
+  -- Check bounds
+  local swap_index
+  if direction == "up" then
+    if current_index == 1 then
+      return false, "Cannot move up: already at the top"
+    end
+    swap_index = current_index - 1
+  elseif direction == "down" then
+    if current_index == #siblings then
+      return false, "Cannot move down: already at the bottom"
+    end
+    swap_index = current_index + 1
+  else
+    return false, "Invalid direction: " .. direction
+  end
+
+  -- Swap by renumbering
+  local swap_id = siblings[swap_index]
+  local prefix = parent_id and (parent_id .. ".") or ""
+
+  -- Create temporary storage for the nodes
+  local temp_nodes = {}
+  for i, id in ipairs(siblings) do
+    temp_nodes[i] = { id = id, node = parent_subtasks[id] }
+  end
+
+  -- Swap positions in our temp array
+  temp_nodes[current_index], temp_nodes[swap_index] = temp_nodes[swap_index], temp_nodes[current_index]
+
+  -- Helper to collect all IDs recursively (for cleanup)
+  local function collect_all_ids(node, ids)
+    table.insert(ids, node.id)
+    if node.subtasks then
+      for child_id, child_node in pairs(node.subtasks) do
+        collect_all_ids(child_node, ids)
+      end
+    end
+  end
+
+  -- Collect all old IDs that need to be cleaned up
+  local old_ids = {}
+  for _, id in ipairs(siblings) do
+    local node = parent_subtasks[id]
+    collect_all_ids(node, old_ids)
+  end
+
+  -- Create temp copy of all task data
+  local temp_tasks = {}
+  for _, old_id in ipairs(old_ids) do
+    if project.task_list[old_id] then
+      temp_tasks[old_id] = project.task_list[old_id]
+    end
+  end
+
+  -- Clear old task IDs
+  for _, old_id in ipairs(old_ids) do
+    project.task_list[old_id] = nil
+  end
+
+  -- Clear old parent subtasks
+  for _, id in ipairs(siblings) do
+    parent_subtasks[id] = nil
+  end
+
+  -- Helper to update IDs recursively and restore tasks
+  local function update_ids(n, old_id, new_id)
+    if temp_tasks[old_id] then
+      local task = temp_tasks[old_id]
+      task.id = new_id
+      project.task_list[new_id] = task
+    end
+
+    if n.subtasks then
+      local new_subtasks = {}
+      for child_id, child_node in pairs(n.subtasks) do
+        local suffix = child_id:sub(#old_id + 2)
+        local new_child_id = new_id .. "." .. suffix
+        child_node.id = new_child_id
+        new_subtasks[new_child_id] = child_node
+        update_ids(child_node, child_id, new_child_id)
+      end
+      n.subtasks = new_subtasks
+    end
+  end
+
+  -- Reassign with new numbering
+  for i, item in ipairs(temp_nodes) do
+    local new_id = prefix .. i
+    local node = item.node
+    node.id = new_id
+    update_ids(node, item.id, new_id)
+    parent_subtasks[new_id] = node
+  end
+
+  -- Save the project
+  local success, err = M.save_project(project)
+  if not success then
+    return false, err
+  end
+
+  return true, nil
+end
+
+-- Move node under previous sibling (indent/demote)
+-- @param project: Project - The project to modify
+-- @param node_id: string - The node ID to indent
+-- @return boolean, string - success status and error message if failed
+function M.indent_node(project, node_id)
+  local node, parent_subtasks, parent_id = find_node(project.structure, node_id)
+  if not node then
+    return false, "Node not found: " .. node_id
+  end
+
+  -- Get sorted list of siblings to find previous sibling
+  local function sorted_keys(t)
+    local keys = {}
+    for k in pairs(t) do
+      table.insert(keys, k)
+    end
+    table.sort(keys, function(a, b)
+      local a_num = tonumber(a:match("(%d+)$")) or 0
+      local b_num = tonumber(b:match("(%d+)$")) or 0
+      return a_num < b_num
+    end)
+    return keys
+  end
+
+  local siblings = sorted_keys(parent_subtasks)
+  local current_index = nil
+  for i, id in ipairs(siblings) do
+    if id == node_id then
+      current_index = i
+      break
+    end
+  end
+
+  if not current_index then
+    return false, "Node not found in parent's children"
+  end
+
+  if current_index == 1 then
+    return false, "Cannot indent: no previous sibling"
+  end
+
+  -- Get previous sibling
+  local prev_sibling_id = siblings[current_index - 1]
+
+  -- Move node under previous sibling
+  local new_id, err = M.move_node(project, node_id, prev_sibling_id)
+  if err then
+    return false, err
+  end
+
+  -- Renumber to keep things clean
+  local success, err2 = M.renumber_structure(project)
+  if not success then
+    return false, err2
+  end
+
+  return true, nil
+end
+
+-- Move node to parent's level (outdent/promote)
+-- @param project: Project - The project to modify
+-- @param node_id: string - The node ID to outdent
+-- @return boolean, string - success status and error message if failed
+function M.outdent_node(project, node_id)
+  local node, parent_subtasks, parent_id = find_node(project.structure, node_id)
+  if not node then
+    return false, "Node not found: " .. node_id
+  end
+
+  if not parent_id then
+    return false, "Cannot outdent: already at root level"
+  end
+
+  -- Get grandparent ID
+  local grandparent_id = parent_id:match("^(.+)%.%d+$")
+
+  -- Move node to grandparent level
+  local new_id, err = M.move_node(project, node_id, grandparent_id)
+  if err then
+    return false, err
+  end
+
+  -- Renumber to keep things clean
+  local success, err2 = M.renumber_structure(project)
+  if not success then
+    return false, err2
+  end
+
+  return true, nil
+end
+
 -- Render tree as formatted string for display
 -- @param project: Project - The project to display
 -- @return string - The formatted tree string
