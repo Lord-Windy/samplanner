@@ -2,9 +2,13 @@
 
 ## What is Samplanner?
 
-Samplanner is a Neovim plugin for project planning and time tracking. It provides a structured approach to managing projects through a hierarchical task system with integrated time logging capabilities.
+Samplanner is a Neovim plugin for project planning and time tracking. It
+provides a structured approach to managing projects through a hierarchical task
+system with integrated time logging capabilities.
 
-The core philosophy is to organize work in a three-tier hierarchy that mirrors how software projects are naturally structured: strategic domains (Areas), functional components (Components), and concrete work items (Jobs).
+The core philosophy is to organize work in a three-tier hierarchy that mirrors
+how software projects are naturally structured: strategic domains (Areas),
+functional components (Components), and concrete work items (Jobs).
 
 ## Core Concepts
 
@@ -22,7 +26,9 @@ Area (1)
 ```
 
 #### **Area** - Strategic Domain
-The highest level of organization representing a major domain or feature area of your project.
+
+The highest level of organization representing a major domain or feature area
+of your project.
 
 **Contains:**
 - Vision/Purpose: Why this area exists
@@ -48,7 +54,9 @@ A functional unit within an Area that provides specific capabilities.
 **Example:** "Login Flow", "Session Management", "Password Reset"
 
 #### **Job** - Concrete Work Item
-The actual work to be done. Only Jobs can be marked as completed and have time tracked against them.
+
+The actual work to be done. Only Jobs can be marked as completed and have time
+tracked against them.
 
 **Contains:**
 - Context: Background and motivation
@@ -81,14 +89,18 @@ Nodes are automatically numbered hierarchically to show relationships:
 2.1      (Component under Area 2)
 ```
 
-The numbering automatically updates when you add, remove, or move nodes in the tree.
+The numbering automatically updates when you add, remove, or move nodes in the
+tree.
 
 ### 3. Structure vs. Tasks
 
-**Key Design Decision:** The structure (tree hierarchy) and tasks (detailed information) are separated.
+**Key Design Decision:** The structure (tree hierarchy) and tasks (detailed
+information) are separated.
 
-- **Structure**: The organizational tree showing Areas, Components, and Jobs with their hierarchical relationships
-- **Task List**: A flat map storing the detailed information for each node (name, details, estimation, tags, notes)
+- **Structure**: The organizational tree showing Areas, Components, and Jobs
+  with their hierarchical relationships
+- **Task List**: A flat map storing the detailed information for each node
+  (name, details, estimation, tags, notes)
 
 They're linked by ID. This separation allows:
 - Fast tree operations without loading all task details
@@ -117,7 +129,8 @@ Session {
 4. Stop session with `:SamplannerStop`
 5. Edit session later to add notes, interruptions, and link tasks
 
-**Interruptions** track breaks and context switches, helping understand actual focused time vs. elapsed time.
+**Interruptions** track breaks and context switches, helping understand actual
+focused time vs. elapsed time.
 
 ### 5. Tags
 
@@ -140,7 +153,8 @@ Jobs (only) can be marked as completed:
 - `completed: false` - Active job (shows in tree normally)
 - `completed: true` - Finished job (can be hidden with filter)
 
-Areas and Components don't have completion status; they're organizational containers.
+Areas and Components don't have completion status; they're organizational
+containers.
 
 ## Data Model
 
@@ -262,7 +276,8 @@ This is a **Ports and Adapters** (Hexagonal) architecture, which provides:
 
 ### Text Format Conversion
 
-The plugin converts between structured data (Lua tables) and human-readable text for editing.
+The plugin converts between structured data (Lua tables) and human-readable
+text for editing.
 
 **Task Format:**
 ```
@@ -280,7 +295,8 @@ Effort: 4 hours
 frontend, auth, sprint-1
 ```
 
-When you save (`:w`), the text is parsed back into structured data and persisted to JSON.
+When you save (`:w`), the text is parsed back into structured data and
+persisted to JSON.
 
 ### Storage
 
@@ -348,7 +364,9 @@ Each file contains the complete project state. The JSON format allows:
 
 ## Key Benefits
 
-1. **Structured Thinking**: The three-tier hierarchy with type-specific details forces you to think through work at the right level of abstraction
+1. **Structured Thinking**: The three-tier hierarchy with type-specific
+   details forces you to think through work at the right level of
+   abstraction
 
 2. **Flexibility**: Tags and search allow multiple views beyond the hierarchy
 
@@ -372,4 +390,5 @@ Samplanner is designed around these principles:
 - **Text for Control**: Human-readable formats you can edit anywhere
 - **Simplicity for Speed**: Fast operations, no complex UI, just your editor
 
-The goal is to make planning a natural part of your workflow, not a separate tool you have to context-switch to.
+The goal is to make planning a natural part of your workflow, not
+a separate tool you have to context-switch to.
