@@ -443,4 +443,56 @@ Validation / Test Plan
       assert.are.equal("Incomplete job", parsed.details.context_why)
     end)
   end)
+
+  describe("Component details with excessive newlines", function()
+    it("should collapse multiple consecutive newlines in purpose field", function()
+      -- Create a component with excessive newlines (as found in Samforge.json)
+      local component_details = models.ComponentDetails.new({
+        purpose = "Take all the generated colours and tiles and then:\n\n\n\n1. Compare and find all common tiles between each set\n\n\n\n\n2. Create simple programs that will create the scene in a set place of memory\n\n\n   so that it can be copied over"
+      })
+      local original = models.Task.new("3.3", "Tile And Colour Compression", component_details, nil, {}, "")
+
+      -- Convert to text and back
+      local text = task_format.task_to_text(original, "Component")
+      local parsed = task_format.text_to_task(text, "Component")
+
+      -- The parsed purpose should have at most 1 empty line between paragraphs
+      local purpose = parsed.details.purpose
+
+      -- Should not contain sequences of 3 or more newlines
+      assert.is_false(purpose:find("\n\n\n") ~= nil, "Purpose should not contain 3+ consecutive newlines")
+
+      -- Should still have paragraph breaks (1-2 newlines are ok)
+      assert.is_true(purpose:find("then:\n") ~= nil, "Purpose should preserve single newlines")
+
+      -- Content should still be present
+      assert.is_true(purpose:find("Take all the generated colours") ~= nil)
+      assert.is_true(purpose:find("1%. Compare and find") ~= nil)
+      assert.is_true(purpose:find("2%. Create simple programs") ~= nil)
+    end)
+
+    it("should handle round-trip without accumulating blank lines", function()
+      local component_details = models.ComponentDetails.new({
+        purpose = "Line 1\n\nLine 2\n\nLine 3"
+      })
+      local original = models.Task.new("1", "Test", component_details, nil, {}, "")
+
+      -- Round-trip multiple times
+      local text1 = task_format.task_to_text(original, "Component")
+      local parsed1 = task_format.text_to_task(text1, "Component")
+
+      local text2 = task_format.task_to_text(parsed1, "Component")
+      local parsed2 = task_format.text_to_task(text2, "Component")
+
+      local text3 = task_format.task_to_text(parsed2, "Component")
+      local parsed3 = task_format.text_to_task(text3, "Component")
+
+      -- After multiple round-trips, should not accumulate blank lines
+      assert.are.equal(parsed1.details.purpose, parsed2.details.purpose)
+      assert.are.equal(parsed2.details.purpose, parsed3.details.purpose)
+
+      -- Should not have excessive newlines
+      assert.is_false(parsed3.details.purpose:find("\n\n\n") ~= nil)
+    end)
+  end)
 end)

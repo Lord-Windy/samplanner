@@ -18,6 +18,23 @@ local function get_checked_value(line, options)
   return ""
 end
 
+-- Helper to normalize consecutive empty lines (collapse multiple empty lines into at most one)
+local function normalize_empty_lines(lines)
+  local result = {}
+  local prev_empty = false
+
+  for _, line in ipairs(lines) do
+    local is_empty = (line == "")
+    -- Only add this line if it's not empty, or if the previous line wasn't empty
+    if not (is_empty and prev_empty) then
+      table.insert(result, line)
+    end
+    prev_empty = is_empty
+  end
+
+  return result
+end
+
 -- Convert Estimation to text format
 local function estimation_to_text(estimation)
   local lines = {}
@@ -397,9 +414,15 @@ local function text_to_job_details(text)
     elseif line:match("^Outcome / Definition of Done$") then
       -- Save context before switching
       if current_section == "context" and #context_lines > 0 then
+        -- Normalize consecutive empty lines
+        context_lines = normalize_empty_lines(context_lines)
         -- Remove trailing empty lines
         while #context_lines > 0 and context_lines[#context_lines] == "" do
           table.remove(context_lines)
+        end
+        -- Remove leading empty lines
+        while #context_lines > 0 and context_lines[1] == "" do
+          table.remove(context_lines, 1)
         end
         jd.context_why = table.concat(context_lines, "\n")
       end
@@ -496,6 +519,8 @@ local function text_to_job_details(text)
 
   -- Handle final context section
   if current_section == "context" and #context_lines > 0 then
+    -- Normalize consecutive empty lines
+    context_lines = normalize_empty_lines(context_lines)
     -- Remove trailing empty lines
     while #context_lines > 0 and context_lines[#context_lines] == "" do
       table.remove(context_lines)
@@ -626,6 +651,8 @@ local function text_to_component_details(text)
     elseif line:match("^Capabilities / Features$") then
       -- Save purpose before switching
       if current_section == "purpose" and #purpose_lines > 0 then
+        -- Normalize consecutive empty lines
+        purpose_lines = normalize_empty_lines(purpose_lines)
         -- Remove trailing empty lines
         while #purpose_lines > 0 and purpose_lines[#purpose_lines] == "" do
           table.remove(purpose_lines)
@@ -722,6 +749,8 @@ local function text_to_component_details(text)
 
   -- Handle final sections
   if current_section == "purpose" and #purpose_lines > 0 then
+    -- Normalize consecutive empty lines
+    purpose_lines = normalize_empty_lines(purpose_lines)
     -- Remove trailing empty lines
     while #purpose_lines > 0 and purpose_lines[#purpose_lines] == "" do
       table.remove(purpose_lines)
@@ -734,6 +763,8 @@ local function text_to_component_details(text)
   end
 
   if current_section == "other" and #other_lines > 0 then
+    -- Normalize consecutive empty lines
+    other_lines = normalize_empty_lines(other_lines)
     -- Remove trailing empty lines
     while #other_lines > 0 and other_lines[#other_lines] == "" do
       table.remove(other_lines)
@@ -864,6 +895,8 @@ local function text_to_area_details(text)
     elseif line:match("^Goals / Objectives$") then
       -- Save vision before switching
       if current_section == "vision" and #vision_lines > 0 then
+        -- Normalize consecutive empty lines
+        vision_lines = normalize_empty_lines(vision_lines)
         -- Remove trailing empty lines
         while #vision_lines > 0 and vision_lines[#vision_lines] == "" do
           table.remove(vision_lines)
@@ -953,6 +986,8 @@ local function text_to_area_details(text)
 
   -- Handle final sections
   if current_section == "vision" and #vision_lines > 0 then
+    -- Normalize consecutive empty lines
+    vision_lines = normalize_empty_lines(vision_lines)
     -- Remove trailing empty lines
     while #vision_lines > 0 and vision_lines[#vision_lines] == "" do
       table.remove(vision_lines)
@@ -965,6 +1000,8 @@ local function text_to_area_details(text)
   end
 
   if current_section == "context" and #context_lines > 0 then
+    -- Normalize consecutive empty lines
+    context_lines = normalize_empty_lines(context_lines)
     -- Remove trailing empty lines
     while #context_lines > 0 and context_lines[#context_lines] == "" do
       table.remove(context_lines)
