@@ -500,6 +500,10 @@ local function text_to_job_details(text)
     while #context_lines > 0 and context_lines[#context_lines] == "" do
       table.remove(context_lines)
     end
+    -- Remove leading empty lines
+    while #context_lines > 0 and context_lines[1] == "" do
+      table.remove(context_lines, 1)
+    end
     jd.context_why = vim.trim(table.concat(context_lines, "\n"))
   end
 
@@ -626,6 +630,10 @@ local function text_to_component_details(text)
         while #purpose_lines > 0 and purpose_lines[#purpose_lines] == "" do
           table.remove(purpose_lines)
         end
+        -- Remove leading empty lines
+        while #purpose_lines > 0 and purpose_lines[1] == "" do
+          table.remove(purpose_lines, 1)
+        end
         cd.purpose = table.concat(purpose_lines, "\n")
       end
       current_section = "capabilities"
@@ -652,6 +660,7 @@ local function text_to_component_details(text)
 
     -- Purpose section content (capture everything until next section)
     elseif current_section == "purpose" then
+      -- Skip leading empty lines, but preserve internal ones
       if line ~= "" then
         table.insert(purpose_lines, line)
       elseif #purpose_lines > 0 then
@@ -702,6 +711,7 @@ local function text_to_component_details(text)
 
     -- Other section content (capture everything)
     elseif current_section == "other" then
+      -- Skip leading empty lines, but preserve internal ones
       if line ~= "" then
         table.insert(other_lines, line)
       elseif #other_lines > 0 then
@@ -712,15 +722,25 @@ local function text_to_component_details(text)
 
   -- Handle final sections
   if current_section == "purpose" and #purpose_lines > 0 then
+    -- Remove trailing empty lines
     while #purpose_lines > 0 and purpose_lines[#purpose_lines] == "" do
       table.remove(purpose_lines)
+    end
+    -- Remove leading empty lines
+    while #purpose_lines > 0 and purpose_lines[1] == "" do
+      table.remove(purpose_lines, 1)
     end
     cd.purpose = vim.trim(table.concat(purpose_lines, "\n"))
   end
 
   if current_section == "other" and #other_lines > 0 then
+    -- Remove trailing empty lines
     while #other_lines > 0 and other_lines[#other_lines] == "" do
       table.remove(other_lines)
+    end
+    -- Remove leading empty lines
+    while #other_lines > 0 and other_lines[1] == "" do
+      table.remove(other_lines, 1)
     end
     cd.other = vim.trim(table.concat(other_lines, "\n"))
   end
@@ -844,8 +864,13 @@ local function text_to_area_details(text)
     elseif line:match("^Goals / Objectives$") then
       -- Save vision before switching
       if current_section == "vision" and #vision_lines > 0 then
+        -- Remove trailing empty lines
         while #vision_lines > 0 and vision_lines[#vision_lines] == "" do
           table.remove(vision_lines)
+        end
+        -- Remove leading empty lines
+        while #vision_lines > 0 and vision_lines[1] == "" do
+          table.remove(vision_lines, 1)
         end
         ad.vision_purpose = table.concat(vision_lines, "\n")
       end
@@ -866,6 +891,7 @@ local function text_to_area_details(text)
 
     -- Vision section content (capture everything until next section)
     elseif current_section == "vision" then
+      -- Skip leading empty lines, but preserve internal ones
       if line ~= "" then
         table.insert(vision_lines, line)
       elseif #vision_lines > 0 then
@@ -916,6 +942,7 @@ local function text_to_area_details(text)
 
     -- Strategic Context section content (capture everything)
     elseif current_section == "context" then
+      -- Skip leading empty lines, but preserve internal ones
       if line ~= "" then
         table.insert(context_lines, line)
       elseif #context_lines > 0 then
@@ -926,15 +953,25 @@ local function text_to_area_details(text)
 
   -- Handle final sections
   if current_section == "vision" and #vision_lines > 0 then
+    -- Remove trailing empty lines
     while #vision_lines > 0 and vision_lines[#vision_lines] == "" do
       table.remove(vision_lines)
+    end
+    -- Remove leading empty lines
+    while #vision_lines > 0 and vision_lines[1] == "" do
+      table.remove(vision_lines, 1)
     end
     ad.vision_purpose = vim.trim(table.concat(vision_lines, "\n"))
   end
 
   if current_section == "context" and #context_lines > 0 then
+    -- Remove trailing empty lines
     while #context_lines > 0 and context_lines[#context_lines] == "" do
       table.remove(context_lines)
+    end
+    -- Remove leading empty lines
+    while #context_lines > 0 and context_lines[1] == "" do
+      table.remove(context_lines, 1)
     end
     ad.strategic_context = vim.trim(table.concat(context_lines, "\n"))
   end
