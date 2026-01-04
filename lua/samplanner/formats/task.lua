@@ -158,7 +158,8 @@ local function text_to_estimation(text)
   local current_section = nil
   local current_subsection = nil
 
-  for line in text:gmatch("[^\r\n]*") do
+  -- Add newline to ensure last line is captured, then match lines
+  for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
     -- Check section headers FIRST (before content matchers)
     if line:match("^Type$") then
       current_section = "type"
@@ -397,7 +398,8 @@ local function text_to_job_details(text)
   local current_subsection = nil
   local context_lines = {}
 
-  for line in text:gmatch("[^\r\n]*") do
+  -- Add newline to ensure last line is captured, then match lines
+  for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
     -- Check section headers
     if line:match("^Context / Why$") then
       current_section = "context"
@@ -643,7 +645,8 @@ local function text_to_component_details(text)
   local purpose_lines = {}
   local other_lines = {}
 
-  for line in text:gmatch("[^\r\n]*") do
+  -- Add newline to ensure last line is captured, then match lines
+  for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
     -- Check section headers
     if line:match("^Purpose / What It Is$") then
       current_section = "purpose"
@@ -887,7 +890,8 @@ local function text_to_area_details(text)
   local vision_lines = {}
   local context_lines = {}
 
-  for line in text:gmatch("[^\r\n]*") do
+  -- Add newline to ensure last line is captured, then match lines
+  for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
     -- Check section headers
     if line:match("^Vision / Purpose$") then
       current_section = "vision"
@@ -1106,7 +1110,8 @@ function M.text_to_task(text, node_type)
   local current_section = nil
   local section_content = {}
 
-  for line in text:gmatch("[^\r\n]*") do
+  -- Add newline to ensure last line is captured, then match lines
+  for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
     -- Check for task header
     local task_id = line:match("^── Task:%s*([^─]+)")
     if task_id then

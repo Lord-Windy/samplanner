@@ -494,5 +494,22 @@ Validation / Test Plan
       -- Should not have excessive newlines
       assert.is_false(parsed3.details.purpose:find("\n\n\n") ~= nil)
     end)
+
+    it("should preserve exactly what user types - no blank lines between list items", function()
+      -- What the user types (one blank line after header, no blank lines between items)
+      local user_typed = "Take all the generated colours and tiles and then:\n\n1. Compare and find all common tiles between each set\n2. Create simple programs that will create the scene in a set place of memory\n   so that it can be copied over"
+
+      local component_details = models.ComponentDetails.new({
+        purpose = user_typed
+      })
+      local original = models.Task.new("3.3", "Test", component_details, nil, {}, "")
+
+      -- Round-trip
+      local text = task_format.task_to_text(original, "Component")
+      local parsed = task_format.text_to_task(text, "Component")
+
+      -- Should preserve exactly what was typed
+      assert.are.equal(user_typed, parsed.details.purpose)
+    end)
   end)
 end)
