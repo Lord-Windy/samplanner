@@ -15,7 +15,7 @@ end
 -- Estimation model (for Jobs only)
 -- JSON: {
 --   "work_type": "new_work|change|bugfix|research",
---   "assumptions": ["assumption 1", "assumption 2"],
+--   "assumptions": "- assumption 1\n- assumption 2",
 --   "effort": {
 --     "method": "similar_work|three_point|gut_feel",
 --     "base_hours": 0,
@@ -30,9 +30,9 @@ end
 --     "milestones": [{"name": "", "date": ""}]
 --   },
 --   "post_estimate_notes": {
---     "could_be_smaller": [""],
---     "could_be_bigger": [""],
---     "ignored_last_time": [""]
+--     "could_be_smaller": "- item 1\n- item 2",
+--     "could_be_bigger": "- item 1\n- item 2",
+--     "ignored_last_time": "- item 1\n- item 2"
 --   }
 -- }
 M.Estimation = {}
@@ -42,7 +42,15 @@ function M.Estimation.new(data)
   data = data or {}
   local self = setmetatable({}, M.Estimation)
   self.work_type = data.work_type or ""
-  self.assumptions = data.assumptions or {}
+
+  -- Handle both old array format and new string format for assumptions
+  if type(data.assumptions) == "table" then
+    local helpers = require('samplanner.migrations.array_string_helpers')
+    self.assumptions = helpers.array_to_text(data.assumptions)
+  else
+    self.assumptions = data.assumptions or ""
+  end
+
   self.effort = {
     method = data.effort and data.effort.method or "",
     base_hours = data.effort and data.effort.base_hours or 0,
@@ -56,10 +64,14 @@ function M.Estimation.new(data)
     target_finish = data.schedule and data.schedule.target_finish or "",
     milestones = data.schedule and data.schedule.milestones or {},
   }
+
+  -- Handle both old array format and new string format for post_estimate_notes
+  local helpers = require('samplanner.migrations.array_string_helpers')
+  local pen = data.post_estimate_notes or {}
   self.post_estimate_notes = {
-    could_be_smaller = data.post_estimate_notes and data.post_estimate_notes.could_be_smaller or {},
-    could_be_bigger = data.post_estimate_notes and data.post_estimate_notes.could_be_bigger or {},
-    ignored_last_time = data.post_estimate_notes and data.post_estimate_notes.ignored_last_time or {},
+    could_be_smaller = type(pen.could_be_smaller) == "table" and helpers.array_to_text(pen.could_be_smaller) or pen.could_be_smaller or "",
+    could_be_bigger = type(pen.could_be_bigger) == "table" and helpers.array_to_text(pen.could_be_bigger) or pen.could_be_bigger or "",
+    ignored_last_time = type(pen.ignored_last_time) == "table" and helpers.array_to_text(pen.ignored_last_time) or pen.ignored_last_time or "",
   }
   return self
 end
@@ -67,29 +79,29 @@ end
 -- Check if estimation has any meaningful data
 function M.Estimation:is_empty()
   return self.work_type == ""
-    and #self.assumptions == 0
+    and self.assumptions == ""
     and self.effort.method == ""
     and self.effort.base_hours == 0
     and self.confidence == ""
     and self.schedule.start_date == ""
     and self.schedule.target_finish == ""
     and #self.schedule.milestones == 0
-    and #self.post_estimate_notes.could_be_smaller == 0
-    and #self.post_estimate_notes.could_be_bigger == 0
-    and #self.post_estimate_notes.ignored_last_time == 0
+    and self.post_estimate_notes.could_be_smaller == ""
+    and self.post_estimate_notes.could_be_bigger == ""
+    and self.post_estimate_notes.ignored_last_time == ""
 end
 
 -- JobDetails model (structured details for Job type tasks)
 -- JSON: {
 --   "context_why": "",
---   "outcome_dod": [],
---   "scope_in": [],
---   "scope_out": [],
---   "requirements_constraints": [],
---   "dependencies": [],
---   "approach": [],
---   "risks": [],
---   "validation_test_plan": [],
+--   "outcome_dod": "- item 1\n- item 2",
+--   "scope_in": "- item 1\n- item 2",
+--   "scope_out": "- item 1\n- item 2",
+--   "requirements_constraints": "- item 1\n- item 2",
+--   "dependencies": "- item 1\n- item 2",
+--   "approach": "- item 1\n- item 2",
+--   "risks": "- item 1\n- item 2",
+--   "validation_test_plan": "- item 1\n- item 2",
 --   "completed": false
 -- }
 M.JobDetails = {}
@@ -98,15 +110,20 @@ M.JobDetails.__index = M.JobDetails
 function M.JobDetails.new(data)
   data = data or {}
   local self = setmetatable({}, M.JobDetails)
+  local helpers = require('samplanner.migrations.array_string_helpers')
+
   self.context_why = data.context_why or ""
-  self.outcome_dod = data.outcome_dod or {}
-  self.scope_in = data.scope_in or {}
-  self.scope_out = data.scope_out or {}
-  self.requirements_constraints = data.requirements_constraints or {}
-  self.dependencies = data.dependencies or {}
-  self.approach = data.approach or {}
-  self.risks = data.risks or {}
-  self.validation_test_plan = data.validation_test_plan or {}
+
+  -- Handle both old array format and new string format
+  self.outcome_dod = type(data.outcome_dod) == "table" and helpers.array_to_text(data.outcome_dod) or data.outcome_dod or ""
+  self.scope_in = type(data.scope_in) == "table" and helpers.array_to_text(data.scope_in) or data.scope_in or ""
+  self.scope_out = type(data.scope_out) == "table" and helpers.array_to_text(data.scope_out) or data.scope_out or ""
+  self.requirements_constraints = type(data.requirements_constraints) == "table" and helpers.array_to_text(data.requirements_constraints) or data.requirements_constraints or ""
+  self.dependencies = type(data.dependencies) == "table" and helpers.array_to_text(data.dependencies) or data.dependencies or ""
+  self.approach = type(data.approach) == "table" and helpers.array_to_text(data.approach) or data.approach or ""
+  self.risks = type(data.risks) == "table" and helpers.array_to_text(data.risks) or data.risks or ""
+  self.validation_test_plan = type(data.validation_test_plan) == "table" and helpers.array_to_text(data.validation_test_plan) or data.validation_test_plan or ""
+
   self.completed = data.completed or false
   return self
 end
@@ -114,26 +131,26 @@ end
 -- Check if job details has any meaningful data
 function M.JobDetails:is_empty()
   return self.context_why == ""
-    and #self.outcome_dod == 0
-    and #self.scope_in == 0
-    and #self.scope_out == 0
-    and #self.requirements_constraints == 0
-    and #self.dependencies == 0
-    and #self.approach == 0
-    and #self.risks == 0
-    and #self.validation_test_plan == 0
+    and self.outcome_dod == ""
+    and self.scope_in == ""
+    and self.scope_out == ""
+    and self.requirements_constraints == ""
+    and self.dependencies == ""
+    and self.approach == ""
+    and self.risks == ""
+    and self.validation_test_plan == ""
     and not self.completed
 end
 
 -- ComponentDetails model (structured details for Component type tasks)
 -- JSON: {
 --   "purpose": "",
---   "capabilities": [],
---   "acceptance_criteria": [],
---   "architecture_design": [],
---   "interfaces_integration": [],
---   "quality_attributes": [],
---   "related_components": [],
+--   "capabilities": "- item 1\n- item 2",
+--   "acceptance_criteria": "- item 1\n- item 2",
+--   "architecture_design": "- item 1\n- item 2",
+--   "interfaces_integration": "- item 1\n- item 2",
+--   "quality_attributes": "- item 1\n- item 2",
+--   "related_components": "- item 1\n- item 2",
 --   "other": ""
 -- }
 M.ComponentDetails = {}
@@ -142,13 +159,18 @@ M.ComponentDetails.__index = M.ComponentDetails
 function M.ComponentDetails.new(data)
   data = data or {}
   local self = setmetatable({}, M.ComponentDetails)
+  local helpers = require('samplanner.migrations.array_string_helpers')
+
   self.purpose = data.purpose or ""
-  self.capabilities = data.capabilities or {}
-  self.acceptance_criteria = data.acceptance_criteria or {}
-  self.architecture_design = data.architecture_design or {}
-  self.interfaces_integration = data.interfaces_integration or {}
-  self.quality_attributes = data.quality_attributes or {}
-  self.related_components = data.related_components or {}
+
+  -- Handle both old array format and new string format
+  self.capabilities = type(data.capabilities) == "table" and helpers.array_to_text(data.capabilities) or data.capabilities or ""
+  self.acceptance_criteria = type(data.acceptance_criteria) == "table" and helpers.array_to_text(data.acceptance_criteria) or data.acceptance_criteria or ""
+  self.architecture_design = type(data.architecture_design) == "table" and helpers.array_to_text(data.architecture_design) or data.architecture_design or ""
+  self.interfaces_integration = type(data.interfaces_integration) == "table" and helpers.array_to_text(data.interfaces_integration) or data.interfaces_integration or ""
+  self.quality_attributes = type(data.quality_attributes) == "table" and helpers.array_to_text(data.quality_attributes) or data.quality_attributes or ""
+  self.related_components = type(data.related_components) == "table" and helpers.array_to_text(data.related_components) or data.related_components or ""
+
   self.other = data.other or ""
   return self
 end
@@ -156,24 +178,24 @@ end
 -- Check if component details has any meaningful data
 function M.ComponentDetails:is_empty()
   return self.purpose == ""
-    and #self.capabilities == 0
-    and #self.acceptance_criteria == 0
-    and #self.architecture_design == 0
-    and #self.interfaces_integration == 0
-    and #self.quality_attributes == 0
-    and #self.related_components == 0
+    and self.capabilities == ""
+    and self.acceptance_criteria == ""
+    and self.architecture_design == ""
+    and self.interfaces_integration == ""
+    and self.quality_attributes == ""
+    and self.related_components == ""
     and self.other == ""
 end
 
 -- AreaDetails model (structured details for Area type tasks)
 -- JSON: {
 --   "vision_purpose": "",
---   "goals_objectives": [],
---   "scope_boundaries": [],
---   "key_components": [],
---   "success_metrics": [],
---   "stakeholders": [],
---   "dependencies_constraints": [],
+--   "goals_objectives": "- item 1\n- item 2",
+--   "scope_boundaries": "- item 1\n- item 2",
+--   "key_components": "- item 1\n- item 2",
+--   "success_metrics": "- item 1\n- item 2",
+--   "stakeholders": "- item 1\n- item 2",
+--   "dependencies_constraints": "- item 1\n- item 2",
 --   "strategic_context": ""
 -- }
 M.AreaDetails = {}
@@ -182,13 +204,18 @@ M.AreaDetails.__index = M.AreaDetails
 function M.AreaDetails.new(data)
   data = data or {}
   local self = setmetatable({}, M.AreaDetails)
+  local helpers = require('samplanner.migrations.array_string_helpers')
+
   self.vision_purpose = data.vision_purpose or ""
-  self.goals_objectives = data.goals_objectives or {}
-  self.scope_boundaries = data.scope_boundaries or {}
-  self.key_components = data.key_components or {}
-  self.success_metrics = data.success_metrics or {}
-  self.stakeholders = data.stakeholders or {}
-  self.dependencies_constraints = data.dependencies_constraints or {}
+
+  -- Handle both old array format and new string format
+  self.goals_objectives = type(data.goals_objectives) == "table" and helpers.array_to_text(data.goals_objectives) or data.goals_objectives or ""
+  self.scope_boundaries = type(data.scope_boundaries) == "table" and helpers.array_to_text(data.scope_boundaries) or data.scope_boundaries or ""
+  self.key_components = type(data.key_components) == "table" and helpers.array_to_text(data.key_components) or data.key_components or ""
+  self.success_metrics = type(data.success_metrics) == "table" and helpers.array_to_text(data.success_metrics) or data.success_metrics or ""
+  self.stakeholders = type(data.stakeholders) == "table" and helpers.array_to_text(data.stakeholders) or data.stakeholders or ""
+  self.dependencies_constraints = type(data.dependencies_constraints) == "table" and helpers.array_to_text(data.dependencies_constraints) or data.dependencies_constraints or ""
+
   self.strategic_context = data.strategic_context or ""
   return self
 end
@@ -196,12 +223,12 @@ end
 -- Check if area details has any meaningful data
 function M.AreaDetails:is_empty()
   return self.vision_purpose == ""
-    and #self.goals_objectives == 0
-    and #self.scope_boundaries == 0
-    and #self.key_components == 0
-    and #self.success_metrics == 0
-    and #self.stakeholders == 0
-    and #self.dependencies_constraints == 0
+    and self.goals_objectives == ""
+    and self.scope_boundaries == ""
+    and self.key_components == ""
+    and self.success_metrics == ""
+    and self.stakeholders == ""
+    and self.dependencies_constraints == ""
     and self.strategic_context == ""
 end
 
@@ -299,31 +326,57 @@ end
 --   "focus_rating": 0,
 --   "energy_level": { "start": 0, "end": 0 },
 --   "context_switches": 0,
---   "defects": { "found": [], "fixed": [] },
---   "deliverables": [],
---   "blockers": [],
---   "retrospective": { "what_went_well": [], "what_needs_improvement": [], "lessons_learned": [] }
+--   "defects": { "found": "- item 1\n- item 2", "fixed": "- item 1\n- item 2" },
+--   "deliverables": "- item 1\n- item 2",
+--   "blockers": "- item 1\n- item 2",
+--   "retrospective": { "what_went_well": "- item 1\n- item 2", "what_needs_improvement": "- item 1\n- item 2", "lessons_learned": "- item 1\n- item 2" }
 -- }
 M.TimeLog = {}
 M.TimeLog.__index = M.TimeLog
 
 function M.TimeLog.new(start_timestamp, end_timestamp, notes, interruptions, interruption_minutes, tasks, session_type, planned_duration_minutes, focus_rating, energy_level, context_switches, defects, deliverables, blockers, retrospective)
   local self = setmetatable({}, M.TimeLog)
+  local helpers = require('samplanner.migrations.array_string_helpers')
+
   self.start_timestamp = start_timestamp or ""
   self.end_timestamp = end_timestamp or ""
   self.notes = notes or ""
   self.interruptions = interruptions or ""
   self.interruption_minutes = interruption_minutes or 0
-  self.tasks = tasks or {}  -- array of task IDs
+  self.tasks = tasks or {}  -- array of task IDs - KEEP AS ARRAY
   self.session_type = session_type or ""
   self.planned_duration_minutes = planned_duration_minutes or 0
   self.focus_rating = focus_rating or 0
   self.energy_level = energy_level or { start = 0, ["end"] = 0 }
   self.context_switches = context_switches or 0
-  self.defects = defects or { found = {}, fixed = {} }
-  self.deliverables = deliverables or {}
-  self.blockers = blockers or {}
-  self.retrospective = retrospective or { what_went_well = {}, what_needs_improvement = {}, lessons_learned = {} }
+
+  -- Handle both old array format and new string format for defects
+  local def = defects or {}
+  if type(def) == "table" then
+    self.defects = {
+      found = type(def.found) == "table" and helpers.array_to_text(def.found) or def.found or "",
+      fixed = type(def.fixed) == "table" and helpers.array_to_text(def.fixed) or def.fixed or "",
+    }
+  else
+    self.defects = { found = "", fixed = "" }
+  end
+
+  -- Handle both old array format and new string format for deliverables and blockers
+  self.deliverables = type(deliverables) == "table" and helpers.array_to_text(deliverables) or deliverables or ""
+  self.blockers = type(blockers) == "table" and helpers.array_to_text(blockers) or blockers or ""
+
+  -- Handle both old array format and new string format for retrospective
+  local retro = retrospective or {}
+  if type(retro) == "table" then
+    self.retrospective = {
+      what_went_well = type(retro.what_went_well) == "table" and helpers.array_to_text(retro.what_went_well) or retro.what_went_well or "",
+      what_needs_improvement = type(retro.what_needs_improvement) == "table" and helpers.array_to_text(retro.what_needs_improvement) or retro.what_needs_improvement or "",
+      lessons_learned = type(retro.lessons_learned) == "table" and helpers.array_to_text(retro.lessons_learned) or retro.lessons_learned or "",
+    }
+  else
+    self.retrospective = { what_went_well = "", what_needs_improvement = "", lessons_learned = "" }
+  end
+
   return self
 end
 

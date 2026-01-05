@@ -51,9 +51,11 @@ local function estimation_to_text(estimation)
 
   -- Assumptions section
   table.insert(lines, "Assumptions")
-  if #est.assumptions > 0 then
-    for _, assumption in ipairs(est.assumptions) do
-      table.insert(lines, "  - " .. assumption)
+  if est.assumptions and est.assumptions ~= "" then
+    -- Split string by newlines and display each line
+    for line in est.assumptions:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
+      table.insert(lines, "  - " .. item)
     end
   else
     table.insert(lines, "  - ")
@@ -103,25 +105,28 @@ local function estimation_to_text(estimation)
   -- Post-estimate notes section
   table.insert(lines, "Post-estimate notes")
   table.insert(lines, "  - What could make this smaller?")
-  if #est.post_estimate_notes.could_be_smaller > 0 then
-    for _, note in ipairs(est.post_estimate_notes.could_be_smaller) do
-      table.insert(lines, "    - " .. note)
+  if est.post_estimate_notes.could_be_smaller and est.post_estimate_notes.could_be_smaller ~= "" then
+    for line in est.post_estimate_notes.could_be_smaller:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
+      table.insert(lines, "    - " .. item)
     end
   else
     table.insert(lines, "    - ")
   end
   table.insert(lines, "  - What could make this bigger?")
-  if #est.post_estimate_notes.could_be_bigger > 0 then
-    for _, note in ipairs(est.post_estimate_notes.could_be_bigger) do
-      table.insert(lines, "    - " .. note)
+  if est.post_estimate_notes.could_be_bigger and est.post_estimate_notes.could_be_bigger ~= "" then
+    for line in est.post_estimate_notes.could_be_bigger:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
+      table.insert(lines, "    - " .. item)
     end
   else
     table.insert(lines, "    - ")
   end
   table.insert(lines, "  - What did I ignore / forget last time?")
-  if #est.post_estimate_notes.ignored_last_time > 0 then
-    for _, note in ipairs(est.post_estimate_notes.ignored_last_time) do
-      table.insert(lines, "    - " .. note)
+  if est.post_estimate_notes.ignored_last_time and est.post_estimate_notes.ignored_last_time ~= "" then
+    for line in est.post_estimate_notes.ignored_last_time:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
+      table.insert(lines, "    - " .. item)
     end
   else
     table.insert(lines, "    - ")
@@ -134,7 +139,7 @@ end
 local function text_to_estimation(text)
   local est = {
     work_type = "",
-    assumptions = {},
+    assumptions = "",
     effort = {
       method = "",
       base_hours = 0,
@@ -149,9 +154,9 @@ local function text_to_estimation(text)
       milestones = {},
     },
     post_estimate_notes = {
-      could_be_smaller = {},
-      could_be_bigger = {},
-      ignored_last_time = {},
+      could_be_smaller = "",
+      could_be_bigger = "",
+      ignored_last_time = "",
     },
   }
 
@@ -194,7 +199,11 @@ local function text_to_estimation(text)
     elseif current_section == "assumptions" and line:match("^%s+%-%s*(.*)$") then
       local assumption = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if assumption ~= "" then
-        table.insert(est.assumptions, assumption)
+        if est.assumptions ~= "" then
+          est.assumptions = est.assumptions .. "\n- " .. assumption
+        else
+          est.assumptions = "- " .. assumption
+        end
       end
 
     -- Effort section content
@@ -260,11 +269,23 @@ local function text_to_estimation(text)
       local note = vim.trim(line:match("^%s+%s+%-%s*(.*)$"))
       if note ~= "" then
         if current_subsection == "smaller" then
-          table.insert(est.post_estimate_notes.could_be_smaller, note)
+          if est.post_estimate_notes.could_be_smaller ~= "" then
+            est.post_estimate_notes.could_be_smaller = est.post_estimate_notes.could_be_smaller .. "\n- " .. note
+          else
+            est.post_estimate_notes.could_be_smaller = "- " .. note
+          end
         elseif current_subsection == "bigger" then
-          table.insert(est.post_estimate_notes.could_be_bigger, note)
+          if est.post_estimate_notes.could_be_bigger ~= "" then
+            est.post_estimate_notes.could_be_bigger = est.post_estimate_notes.could_be_bigger .. "\n- " .. note
+          else
+            est.post_estimate_notes.could_be_bigger = "- " .. note
+          end
         elseif current_subsection == "ignored" then
-          table.insert(est.post_estimate_notes.ignored_last_time, note)
+          if est.post_estimate_notes.ignored_last_time ~= "" then
+            est.post_estimate_notes.ignored_last_time = est.post_estimate_notes.ignored_last_time .. "\n- " .. note
+          else
+            est.post_estimate_notes.ignored_last_time = "- " .. note
+          end
         end
       end
     end
@@ -293,8 +314,9 @@ local function job_details_to_text(job_details)
 
   -- Outcome / Definition of Done section
   table.insert(lines, "Outcome / Definition of Done")
-  if #jd.outcome_dod > 0 then
-    for _, item in ipairs(jd.outcome_dod) do
+  if jd.outcome_dod and jd.outcome_dod ~= "" then
+    for line in jd.outcome_dod:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -305,16 +327,18 @@ local function job_details_to_text(job_details)
   -- Scope section
   table.insert(lines, "Scope")
   table.insert(lines, "  In scope:")
-  if #jd.scope_in > 0 then
-    for _, item in ipairs(jd.scope_in) do
+  if jd.scope_in and jd.scope_in ~= "" then
+    for line in jd.scope_in:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "    - " .. item)
     end
   else
     table.insert(lines, "    - ")
   end
   table.insert(lines, "  Out of scope:")
-  if #jd.scope_out > 0 then
-    for _, item in ipairs(jd.scope_out) do
+  if jd.scope_out and jd.scope_out ~= "" then
+    for line in jd.scope_out:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "    - " .. item)
     end
   else
@@ -324,8 +348,9 @@ local function job_details_to_text(job_details)
 
   -- Requirements / Constraints section
   table.insert(lines, "Requirements / Constraints")
-  if #jd.requirements_constraints > 0 then
-    for _, item in ipairs(jd.requirements_constraints) do
+  if jd.requirements_constraints and jd.requirements_constraints ~= "" then
+    for line in jd.requirements_constraints:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -335,8 +360,9 @@ local function job_details_to_text(job_details)
 
   -- Dependencies section
   table.insert(lines, "Dependencies")
-  if #jd.dependencies > 0 then
-    for _, item in ipairs(jd.dependencies) do
+  if jd.dependencies and jd.dependencies ~= "" then
+    for line in jd.dependencies:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -346,8 +372,9 @@ local function job_details_to_text(job_details)
 
   -- Approach section
   table.insert(lines, "Approach (brief plan)")
-  if #jd.approach > 0 then
-    for _, item in ipairs(jd.approach) do
+  if jd.approach and jd.approach ~= "" then
+    for line in jd.approach:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -357,8 +384,9 @@ local function job_details_to_text(job_details)
 
   -- Risks section
   table.insert(lines, "Risks")
-  if #jd.risks > 0 then
-    for _, item in ipairs(jd.risks) do
+  if jd.risks and jd.risks ~= "" then
+    for line in jd.risks:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -368,8 +396,9 @@ local function job_details_to_text(job_details)
 
   -- Validation / Test Plan section
   table.insert(lines, "Validation / Test Plan")
-  if #jd.validation_test_plan > 0 then
-    for _, item in ipairs(jd.validation_test_plan) do
+  if jd.validation_test_plan and jd.validation_test_plan ~= "" then
+    for line in jd.validation_test_plan:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -383,14 +412,14 @@ end
 local function text_to_job_details(text)
   local jd = {
     context_why = "",
-    outcome_dod = {},
-    scope_in = {},
-    scope_out = {},
-    requirements_constraints = {},
-    dependencies = {},
-    approach = {},
-    risks = {},
-    validation_test_plan = {},
+    outcome_dod = "",
+    scope_in = "",
+    scope_out = "",
+    requirements_constraints = "",
+    dependencies = "",
+    approach = "",
+    risks = "",
+    validation_test_plan = "",
     completed = false,
   }
 
@@ -464,7 +493,11 @@ local function text_to_job_details(text)
     elseif current_section == "outcome" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(jd.outcome_dod, item)
+        if jd.outcome_dod ~= "" then
+          jd.outcome_dod = jd.outcome_dod .. "\n- " .. item
+        else
+          jd.outcome_dod = "- " .. item
+        end
       end
 
     -- Scope section content
@@ -476,9 +509,17 @@ local function text_to_job_details(text)
       local item = vim.trim(line:match("^%s+%s+%-%s*(.*)$"))
       if item ~= "" then
         if current_subsection == "in" then
-          table.insert(jd.scope_in, item)
+          if jd.scope_in ~= "" then
+            jd.scope_in = jd.scope_in .. "\n- " .. item
+          else
+            jd.scope_in = "- " .. item
+          end
         elseif current_subsection == "out" then
-          table.insert(jd.scope_out, item)
+          if jd.scope_out ~= "" then
+            jd.scope_out = jd.scope_out .. "\n- " .. item
+          else
+            jd.scope_out = "- " .. item
+          end
         end
       end
 
@@ -486,35 +527,55 @@ local function text_to_job_details(text)
     elseif current_section == "requirements" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(jd.requirements_constraints, item)
+        if jd.requirements_constraints ~= "" then
+          jd.requirements_constraints = jd.requirements_constraints .. "\n- " .. item
+        else
+          jd.requirements_constraints = "- " .. item
+        end
       end
 
     -- Dependencies section content
     elseif current_section == "dependencies" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(jd.dependencies, item)
+        if jd.dependencies ~= "" then
+          jd.dependencies = jd.dependencies .. "\n- " .. item
+        else
+          jd.dependencies = "- " .. item
+        end
       end
 
     -- Approach section content
     elseif current_section == "approach" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(jd.approach, item)
+        if jd.approach ~= "" then
+          jd.approach = jd.approach .. "\n- " .. item
+        else
+          jd.approach = "- " .. item
+        end
       end
 
     -- Risks section content
     elseif current_section == "risks" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(jd.risks, item)
+        if jd.risks ~= "" then
+          jd.risks = jd.risks .. "\n- " .. item
+        else
+          jd.risks = "- " .. item
+        end
       end
 
     -- Validation section content
     elseif current_section == "validation" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(jd.validation_test_plan, item)
+        if jd.validation_test_plan ~= "" then
+          jd.validation_test_plan = jd.validation_test_plan .. "\n- " .. item
+        else
+          jd.validation_test_plan = "- " .. item
+        end
       end
     end
   end
@@ -553,8 +614,9 @@ local function component_details_to_text(component_details)
 
   -- Capabilities / Features section
   table.insert(lines, "Capabilities / Features")
-  if #cd.capabilities > 0 then
-    for _, item in ipairs(cd.capabilities) do
+  if cd.capabilities and cd.capabilities ~= "" then
+    for line in cd.capabilities:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -564,8 +626,9 @@ local function component_details_to_text(component_details)
 
   -- Acceptance Criteria section
   table.insert(lines, "Acceptance Criteria")
-  if #cd.acceptance_criteria > 0 then
-    for _, item in ipairs(cd.acceptance_criteria) do
+  if cd.acceptance_criteria and cd.acceptance_criteria ~= "" then
+    for line in cd.acceptance_criteria:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -575,8 +638,9 @@ local function component_details_to_text(component_details)
 
   -- Architecture / Design section
   table.insert(lines, "Architecture / Design")
-  if #cd.architecture_design > 0 then
-    for _, item in ipairs(cd.architecture_design) do
+  if cd.architecture_design and cd.architecture_design ~= "" then
+    for line in cd.architecture_design:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -586,8 +650,9 @@ local function component_details_to_text(component_details)
 
   -- Interfaces / Integration Points section
   table.insert(lines, "Interfaces / Integration Points")
-  if #cd.interfaces_integration > 0 then
-    for _, item in ipairs(cd.interfaces_integration) do
+  if cd.interfaces_integration and cd.interfaces_integration ~= "" then
+    for line in cd.interfaces_integration:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -597,8 +662,9 @@ local function component_details_to_text(component_details)
 
   -- Quality Attributes section
   table.insert(lines, "Quality Attributes")
-  if #cd.quality_attributes > 0 then
-    for _, item in ipairs(cd.quality_attributes) do
+  if cd.quality_attributes and cd.quality_attributes ~= "" then
+    for line in cd.quality_attributes:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -608,8 +674,9 @@ local function component_details_to_text(component_details)
 
   -- Related Components section
   table.insert(lines, "Related Components")
-  if #cd.related_components > 0 then
-    for _, item in ipairs(cd.related_components) do
+  if cd.related_components and cd.related_components ~= "" then
+    for line in cd.related_components:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -632,12 +699,12 @@ end
 local function text_to_component_details(text)
   local cd = {
     purpose = "",
-    capabilities = {},
-    acceptance_criteria = {},
-    architecture_design = {},
-    interfaces_integration = {},
-    quality_attributes = {},
-    related_components = {},
+    capabilities = "",
+    acceptance_criteria = "",
+    architecture_design = "",
+    interfaces_integration = "",
+    quality_attributes = "",
+    related_components = "",
     other = "",
   }
 
@@ -701,42 +768,66 @@ local function text_to_component_details(text)
     elseif current_section == "capabilities" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(cd.capabilities, item)
+        if cd.capabilities ~= "" then
+          cd.capabilities = cd.capabilities .. "\n- " .. item
+        else
+          cd.capabilities = "- " .. item
+        end
       end
 
     -- Acceptance Criteria section content
     elseif current_section == "acceptance_criteria" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(cd.acceptance_criteria, item)
+        if cd.acceptance_criteria ~= "" then
+          cd.acceptance_criteria = cd.acceptance_criteria .. "\n- " .. item
+        else
+          cd.acceptance_criteria = "- " .. item
+        end
       end
 
     -- Architecture section content
     elseif current_section == "architecture" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(cd.architecture_design, item)
+        if cd.architecture_design ~= "" then
+          cd.architecture_design = cd.architecture_design .. "\n- " .. item
+        else
+          cd.architecture_design = "- " .. item
+        end
       end
 
     -- Interfaces section content
     elseif current_section == "interfaces" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(cd.interfaces_integration, item)
+        if cd.interfaces_integration ~= "" then
+          cd.interfaces_integration = cd.interfaces_integration .. "\n- " .. item
+        else
+          cd.interfaces_integration = "- " .. item
+        end
       end
 
     -- Quality Attributes section content
     elseif current_section == "quality_attributes" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(cd.quality_attributes, item)
+        if cd.quality_attributes ~= "" then
+          cd.quality_attributes = cd.quality_attributes .. "\n- " .. item
+        else
+          cd.quality_attributes = "- " .. item
+        end
       end
 
     -- Related Components section content
     elseif current_section == "related_components" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(cd.related_components, item)
+        if cd.related_components ~= "" then
+          cd.related_components = cd.related_components .. "\n- " .. item
+        else
+          cd.related_components = "- " .. item
+        end
       end
 
     -- Other section content (capture everything)
@@ -798,8 +889,9 @@ local function area_details_to_text(area_details)
 
   -- Goals / Objectives section
   table.insert(lines, "Goals / Objectives")
-  if #ad.goals_objectives > 0 then
-    for _, item in ipairs(ad.goals_objectives) do
+  if ad.goals_objectives and ad.goals_objectives ~= "" then
+    for line in ad.goals_objectives:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -809,8 +901,9 @@ local function area_details_to_text(area_details)
 
   -- Scope / Boundaries section
   table.insert(lines, "Scope / Boundaries")
-  if #ad.scope_boundaries > 0 then
-    for _, item in ipairs(ad.scope_boundaries) do
+  if ad.scope_boundaries and ad.scope_boundaries ~= "" then
+    for line in ad.scope_boundaries:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -820,8 +913,9 @@ local function area_details_to_text(area_details)
 
   -- Key Components section
   table.insert(lines, "Key Components")
-  if #ad.key_components > 0 then
-    for _, item in ipairs(ad.key_components) do
+  if ad.key_components and ad.key_components ~= "" then
+    for line in ad.key_components:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -831,8 +925,9 @@ local function area_details_to_text(area_details)
 
   -- Success Metrics / KPIs section
   table.insert(lines, "Success Metrics / KPIs")
-  if #ad.success_metrics > 0 then
-    for _, item in ipairs(ad.success_metrics) do
+  if ad.success_metrics and ad.success_metrics ~= "" then
+    for line in ad.success_metrics:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -842,8 +937,9 @@ local function area_details_to_text(area_details)
 
   -- Stakeholders section
   table.insert(lines, "Stakeholders")
-  if #ad.stakeholders > 0 then
-    for _, item in ipairs(ad.stakeholders) do
+  if ad.stakeholders and ad.stakeholders ~= "" then
+    for line in ad.stakeholders:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -853,8 +949,9 @@ local function area_details_to_text(area_details)
 
   -- Dependencies / Constraints section
   table.insert(lines, "Dependencies / Constraints")
-  if #ad.dependencies_constraints > 0 then
-    for _, item in ipairs(ad.dependencies_constraints) do
+  if ad.dependencies_constraints and ad.dependencies_constraints ~= "" then
+    for line in ad.dependencies_constraints:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   else
@@ -877,12 +974,12 @@ end
 local function text_to_area_details(text)
   local ad = {
     vision_purpose = "",
-    goals_objectives = {},
-    scope_boundaries = {},
-    key_components = {},
-    success_metrics = {},
-    stakeholders = {},
-    dependencies_constraints = {},
+    goals_objectives = "",
+    scope_boundaries = "",
+    key_components = "",
+    success_metrics = "",
+    stakeholders = "",
+    dependencies_constraints = "",
     strategic_context = "",
   }
 
@@ -939,42 +1036,66 @@ local function text_to_area_details(text)
     elseif current_section == "goals" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(ad.goals_objectives, item)
+        if ad.goals_objectives ~= "" then
+          ad.goals_objectives = ad.goals_objectives .. "\n- " .. item
+        else
+          ad.goals_objectives = "- " .. item
+        end
       end
 
     -- Scope section content
     elseif current_section == "scope" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(ad.scope_boundaries, item)
+        if ad.scope_boundaries ~= "" then
+          ad.scope_boundaries = ad.scope_boundaries .. "\n- " .. item
+        else
+          ad.scope_boundaries = "- " .. item
+        end
       end
 
     -- Key Components section content
     elseif current_section == "components" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(ad.key_components, item)
+        if ad.key_components ~= "" then
+          ad.key_components = ad.key_components .. "\n- " .. item
+        else
+          ad.key_components = "- " .. item
+        end
       end
 
     -- Success Metrics section content
     elseif current_section == "metrics" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(ad.success_metrics, item)
+        if ad.success_metrics ~= "" then
+          ad.success_metrics = ad.success_metrics .. "\n- " .. item
+        else
+          ad.success_metrics = "- " .. item
+        end
       end
 
     -- Stakeholders section content
     elseif current_section == "stakeholders" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(ad.stakeholders, item)
+        if ad.stakeholders ~= "" then
+          ad.stakeholders = ad.stakeholders .. "\n- " .. item
+        else
+          ad.stakeholders = "- " .. item
+        end
       end
 
     -- Dependencies section content
     elseif current_section == "dependencies" and line:match("^%s+%-%s*(.*)$") then
       local item = vim.trim(line:match("^%s+%-%s*(.*)$"))
       if item ~= "" then
-        table.insert(ad.dependencies_constraints, item)
+        if ad.dependencies_constraints ~= "" then
+          ad.dependencies_constraints = ad.dependencies_constraints .. "\n- " .. item
+        else
+          ad.dependencies_constraints = "- " .. item
+        end
       end
 
     -- Strategic Context section content (capture everything)

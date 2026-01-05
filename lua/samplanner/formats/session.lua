@@ -77,9 +77,10 @@ function M.session_to_text(time_log)
 
   -- Deliverables section
   table.insert(lines, "── Deliverables ─────────────────────")
-  if time_log.deliverables and #time_log.deliverables > 0 then
-    for _, deliverable in ipairs(time_log.deliverables) do
-      table.insert(lines, "- " .. deliverable)
+  if time_log.deliverables and time_log.deliverables ~= "" then
+    for line in time_log.deliverables:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
+      table.insert(lines, "- " .. item)
     end
   end
   table.insert(lines, "")
@@ -87,24 +88,27 @@ function M.session_to_text(time_log)
   -- Defects section
   table.insert(lines, "── Defects ──────────────────────────")
   table.insert(lines, "Found:")
-  if time_log.defects and time_log.defects.found and #time_log.defects.found > 0 then
-    for _, defect in ipairs(time_log.defects.found) do
-      table.insert(lines, "  - " .. defect)
+  if time_log.defects and time_log.defects.found and time_log.defects.found ~= "" then
+    for line in time_log.defects.found:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
+      table.insert(lines, "  - " .. item)
     end
   end
   table.insert(lines, "Fixed:")
-  if time_log.defects and time_log.defects.fixed and #time_log.defects.fixed > 0 then
-    for _, defect in ipairs(time_log.defects.fixed) do
-      table.insert(lines, "  - " .. defect)
+  if time_log.defects and time_log.defects.fixed and time_log.defects.fixed ~= "" then
+    for line in time_log.defects.fixed:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
+      table.insert(lines, "  - " .. item)
     end
   end
   table.insert(lines, "")
 
   -- Blockers section
   table.insert(lines, "── Blockers ─────────────────────────")
-  if time_log.blockers and #time_log.blockers > 0 then
-    for _, blocker in ipairs(time_log.blockers) do
-      table.insert(lines, "- " .. blocker)
+  if time_log.blockers and time_log.blockers ~= "" then
+    for line in time_log.blockers:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
+      table.insert(lines, "- " .. item)
     end
   end
   table.insert(lines, "")
@@ -112,20 +116,23 @@ function M.session_to_text(time_log)
   -- Retrospective section
   table.insert(lines, "── Retrospective ────────────────────")
   table.insert(lines, "What Went Well:")
-  if time_log.retrospective and time_log.retrospective.what_went_well and #time_log.retrospective.what_went_well > 0 then
-    for _, item in ipairs(time_log.retrospective.what_went_well) do
+  if time_log.retrospective and time_log.retrospective.what_went_well and time_log.retrospective.what_went_well ~= "" then
+    for line in time_log.retrospective.what_went_well:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   end
   table.insert(lines, "What Needs Improvement:")
-  if time_log.retrospective and time_log.retrospective.what_needs_improvement and #time_log.retrospective.what_needs_improvement > 0 then
-    for _, item in ipairs(time_log.retrospective.what_needs_improvement) do
+  if time_log.retrospective and time_log.retrospective.what_needs_improvement and time_log.retrospective.what_needs_improvement ~= "" then
+    for line in time_log.retrospective.what_needs_improvement:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   end
   table.insert(lines, "Lessons Learned:")
-  if time_log.retrospective and time_log.retrospective.lessons_learned and #time_log.retrospective.lessons_learned > 0 then
-    for _, item in ipairs(time_log.retrospective.lessons_learned) do
+  if time_log.retrospective and time_log.retrospective.lessons_learned and time_log.retrospective.lessons_learned ~= "" then
+    for line in time_log.retrospective.lessons_learned:gmatch("[^\r\n]+") do
+      local item = line:match("^%-%s*(.*)$") or line
       table.insert(lines, "  - " .. item)
     end
   end
@@ -156,10 +163,10 @@ function M.text_to_session(text)
   local notes = ""
   local interruptions = ""
   local interruption_minutes = 0
-  local deliverables = {}
-  local defects = { found = {}, fixed = {} }
-  local blockers = {}
-  local retrospective = { what_went_well = {}, what_needs_improvement = {}, lessons_learned = {} }
+  local deliverables = ""
+  local defects = { found = "", fixed = "" }
+  local blockers = ""
+  local retrospective = { what_went_well = "", what_needs_improvement = "", lessons_learned = "" }
   local tasks = {}
 
   local current_section = nil
@@ -251,7 +258,12 @@ function M.text_to_session(text)
     elseif current_section == "deliverables" then
       local item = line:match("^%-%s*(.+)$")
       if item then
-        table.insert(deliverables, vim.trim(item))
+        local trimmed = vim.trim(item)
+        if deliverables ~= "" then
+          deliverables = deliverables .. "\n- " .. trimmed
+        else
+          deliverables = "- " .. trimmed
+        end
       end
     elseif current_section == "defects" then
       if line:match("^Found:") then
@@ -261,17 +273,31 @@ function M.text_to_session(text)
       else
         local item = line:match("^%s*%-%s*(.+)$")
         if item then
+          local trimmed = vim.trim(item)
           if current_subsection == "found" then
-            table.insert(defects.found, vim.trim(item))
+            if defects.found ~= "" then
+              defects.found = defects.found .. "\n- " .. trimmed
+            else
+              defects.found = "- " .. trimmed
+            end
           elseif current_subsection == "fixed" then
-            table.insert(defects.fixed, vim.trim(item))
+            if defects.fixed ~= "" then
+              defects.fixed = defects.fixed .. "\n- " .. trimmed
+            else
+              defects.fixed = "- " .. trimmed
+            end
           end
         end
       end
     elseif current_section == "blockers" then
       local item = line:match("^%-%s*(.+)$")
       if item then
-        table.insert(blockers, vim.trim(item))
+        local trimmed = vim.trim(item)
+        if blockers ~= "" then
+          blockers = blockers .. "\n- " .. trimmed
+        else
+          blockers = "- " .. trimmed
+        end
       end
     elseif current_section == "retrospective" then
       if line:match("^What Went Well:") then
@@ -283,12 +309,25 @@ function M.text_to_session(text)
       else
         local item = line:match("^%s*%-%s*(.+)$")
         if item then
+          local trimmed = vim.trim(item)
           if current_subsection == "what_went_well" then
-            table.insert(retrospective.what_went_well, vim.trim(item))
+            if retrospective.what_went_well ~= "" then
+              retrospective.what_went_well = retrospective.what_went_well .. "\n- " .. trimmed
+            else
+              retrospective.what_went_well = "- " .. trimmed
+            end
           elseif current_subsection == "what_needs_improvement" then
-            table.insert(retrospective.what_needs_improvement, vim.trim(item))
+            if retrospective.what_needs_improvement ~= "" then
+              retrospective.what_needs_improvement = retrospective.what_needs_improvement .. "\n- " .. trimmed
+            else
+              retrospective.what_needs_improvement = "- " .. trimmed
+            end
           elseif current_subsection == "lessons_learned" then
-            table.insert(retrospective.lessons_learned, vim.trim(item))
+            if retrospective.lessons_learned ~= "" then
+              retrospective.lessons_learned = retrospective.lessons_learned .. "\n- " .. trimmed
+            else
+              retrospective.lessons_learned = "- " .. trimmed
+            end
           end
         end
       end

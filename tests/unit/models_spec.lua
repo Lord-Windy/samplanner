@@ -49,14 +49,14 @@ describe("Estimation", function()
   it("should create a new Estimation instance", function()
     local est = models.Estimation.new({
       work_type = "new_work",
-      assumptions = {"assumption 1"},
+      assumptions = {"assumption 1"},  -- Old array format - should auto-convert
       effort = { method = "gut_feel", base_hours = 4, buffer_percent = 20, buffer_reason = "unknowns", total_hours = 5 },
       confidence = "med",
       schedule = { start_date = "2025-01-01", target_finish = "2025-01-05", milestones = {} },
       post_estimate_notes = { could_be_smaller = {}, could_be_bigger = {}, ignored_last_time = {} }
     })
     assert.are.equal("new_work", est.work_type)
-    assert.are.same({"assumption 1"}, est.assumptions)
+    assert.are.equal("- assumption 1", est.assumptions)  -- Now a string, auto-converted from array
     assert.are.equal("gut_feel", est.effort.method)
     assert.are.equal(4, est.effort.base_hours)
     assert.are.equal("med", est.confidence)
@@ -66,7 +66,7 @@ describe("Estimation", function()
   it("should use defaults for missing parameters", function()
     local est = models.Estimation.new()
     assert.are.equal("", est.work_type)
-    assert.are.same({}, est.assumptions)
+    assert.are.equal("", est.assumptions)  -- Now a string instead of array
     assert.are.equal("", est.effort.method)
     assert.are.equal(0, est.effort.base_hours)
     assert.are.equal("", est.confidence)
