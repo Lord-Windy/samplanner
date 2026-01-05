@@ -1,9 +1,9 @@
 -- Migration helpers for converting between arrays and newline-separated strings
 local M = {}
 
--- Convert array to newline-separated string with bullet points
+-- Convert array to newline-separated string (preserving original format if items have bullets, otherwise just joining)
 -- @param array: table - Array of strings
--- @return string - Newline-separated string with "- " prefix for each item
+-- @return string - Newline-separated string
 function M.array_to_text(array)
   if not array or type(array) ~= "table" or #array == 0 then
     return ""
@@ -12,14 +12,19 @@ function M.array_to_text(array)
   local lines = {}
   for _, item in ipairs(array) do
     if item and item ~= "" then
-      table.insert(lines, "- " .. item)
+      -- If the item doesn't already start with "- ", add it (for backward compatibility with old data)
+      if not item:match("^%-") then
+        table.insert(lines, "- " .. item)
+      else
+        table.insert(lines, item)
+      end
     end
   end
 
   return table.concat(lines, "\n")
 end
 
--- Convert newline-separated string (with or without bullets) to array
+-- Convert newline-separated string to array (removing bullet prefixes if present)
 -- @param text: string - Newline-separated text, optionally with "- " prefix
 -- @return table - Array of strings
 function M.text_to_array(text)

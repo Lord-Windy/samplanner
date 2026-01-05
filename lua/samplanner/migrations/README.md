@@ -60,13 +60,23 @@ This migration converts array fields in tasks and time sessions to newline-separ
 }
 ```
 
-### New String Format:
+### New String Format (Free-form):
 ```json
 {
   "outcome_dod": "- Complete feature X\n- Write tests\n- Update docs",
   "assumptions": "- API will be stable\n- Resources available"
 }
 ```
+
+Or with paragraphs:
+```json
+{
+  "outcome_dod": "- Complete feature X\n\nThis is a detailed paragraph explaining what completing feature X means.\nIt can span multiple lines.\n\n- Write tests\n- Update docs",
+  "approach": "First, we need to understand the requirements.\n\nThen:\n- Design the solution\n- Implement it\n- Test thoroughly"
+}
+```
+
+**Important**: The format is free-form. You can use bullets where helpful, write paragraphs where needed, or mix both. The text is preserved exactly as written.
 
 ## Automatic Migration
 

@@ -20,25 +20,64 @@
   "task_list": {
     "1": {
       "name": "name",
-      "details": "description",
+      "details": {
+        "vision_purpose": "High-level description of the area",
+        "goals_objectives": "- Goal 1\n- Goal 2",
+        "scope_boundaries": "",
+        "key_components": "",
+        "success_metrics": "",
+        "stakeholders": "",
+        "dependencies_constraints": "",
+        "strategic_context": ""
+      },
       "estimation": "",
       "tags": ["",""]
     },
     "1.1": {
       "name": "name",
-      "details": "description",
-      "estimation": "",
+      "details": {
+        "purpose": "What this component does",
+        "capabilities": "- Feature 1\n- Feature 2\n\nOr write free-form text here",
+        "acceptance_criteria": "",
+        "architecture_design": "",
+        "interfaces_integration": "",
+        "quality_attributes": "",
+        "related_components": "",
+        "other": ""
+      },
       "tags": ["",""]
     },
     "1.1.1": {
       "name": "name",
-      "details": "description",
+      "details": {
+        "context_why": "Why this job is needed",
+        "outcome_dod": "- Deliverable 1\n- Deliverable 2\n\nOr write paragraphs explaining outcomes",
+        "scope_in": "",
+        "scope_out": "",
+        "requirements_constraints": "",
+        "dependencies": "",
+        "approach": "- Step 1\n- Step 2\n\nDetailed explanation of approach",
+        "risks": "",
+        "validation_test_plan": "",
+        "completed": false
+      },
       "estimation": "",
       "tags": ["",""]
     },
     "1.1.2" : {
       "name": "name",
-      "details": "description",
+      "details": {
+        "context_why": "",
+        "outcome_dod": "",
+        "scope_in": "",
+        "scope_out": "",
+        "requirements_constraints": "",
+        "dependencies": "",
+        "approach": "",
+        "risks": "",
+        "validation_test_plan": "",
+        "completed": false
+      },
       "estimation": "",
       "tags": ["",""]
     }
@@ -49,7 +88,23 @@
     "notes": "",
     "interruptions": "",
     "interruption_minutes": 0,
-    "tasks": ["links to task_list"]
+    "tasks": ["1.1", "1.2"],
+    "session_type": "coding",
+    "planned_duration_minutes": 60,
+    "focus_rating": 4,
+    "energy_level": { "start": 4, "end": 3 },
+    "context_switches": 1,
+    "defects": {
+      "found": "- Bug in validation\n- Edge case not handled",
+      "fixed": "- Fixed the bug\n\nAdded proper error handling"
+    },
+    "deliverables": "- Completed feature X\n- Updated tests",
+    "blockers": "- Waiting for API docs\n\nNeed clarification on spec",
+    "retrospective": {
+      "what_went_well": "- Good progress today\n- Tests are solid",
+      "what_needs_improvement": "- Need better planning",
+      "lessons_learned": "- Always check edge cases\n\nTesting early saves time"
+    }
   }],
   "tags": ["",""]
 }
