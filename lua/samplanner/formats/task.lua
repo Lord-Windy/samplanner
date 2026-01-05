@@ -35,6 +35,24 @@ local function normalize_empty_lines(lines)
   return result
 end
 
+-- Helper to split string by newlines, preserving empty lines
+local function split_lines(str)
+  local lines = {}
+  local pos = 1
+  while true do
+    local nl = str:find("\n", pos, true)
+    if nl then
+      table.insert(lines, str:sub(pos, nl - 1))
+      pos = nl + 1
+    else
+      -- Capture the last segment (or the whole string if no newlines)
+      table.insert(lines, str:sub(pos))
+      break
+    end
+  end
+  return lines
+end
+
 -- Convert Estimation to text format
 local function estimation_to_text(estimation)
   local lines = {}
@@ -356,8 +374,8 @@ local function job_details_to_text(job_details)
   -- Outcome / Definition of Done section
   table.insert(lines, "Outcome / Definition of Done")
   if jd.outcome_dod and jd.outcome_dod ~= "" then
-    -- Output text as-is, just add indentation
-    for line in jd.outcome_dod:gmatch("[^\r\n]+") do
+    -- Output text as-is, just add indentation (preserving empty lines)
+    for _, line in ipairs(split_lines(jd.outcome_dod)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -369,8 +387,8 @@ local function job_details_to_text(job_details)
   table.insert(lines, "Scope")
   table.insert(lines, "  In scope:")
   if jd.scope_in and jd.scope_in ~= "" then
-    -- Output text as-is with 4-space indentation
-    for line in jd.scope_in:gmatch("[^\r\n]+") do
+    -- Output text as-is with 4-space indentation (preserving empty lines)
+    for _, line in ipairs(split_lines(jd.scope_in)) do
       table.insert(lines, "    " .. line)
     end
   else
@@ -378,8 +396,8 @@ local function job_details_to_text(job_details)
   end
   table.insert(lines, "  Out of scope:")
   if jd.scope_out and jd.scope_out ~= "" then
-    -- Output text as-is with 4-space indentation
-    for line in jd.scope_out:gmatch("[^\r\n]+") do
+    -- Output text as-is with 4-space indentation (preserving empty lines)
+    for _, line in ipairs(split_lines(jd.scope_out)) do
       table.insert(lines, "    " .. line)
     end
   else
@@ -390,8 +408,8 @@ local function job_details_to_text(job_details)
   -- Requirements / Constraints section
   table.insert(lines, "Requirements / Constraints")
   if jd.requirements_constraints and jd.requirements_constraints ~= "" then
-    -- Output text as-is, just add indentation
-    for line in jd.requirements_constraints:gmatch("[^\r\n]+") do
+    -- Output text as-is, just add indentation (preserving empty lines)
+    for _, line in ipairs(split_lines(jd.requirements_constraints)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -402,8 +420,8 @@ local function job_details_to_text(job_details)
   -- Dependencies section
   table.insert(lines, "Dependencies")
   if jd.dependencies and jd.dependencies ~= "" then
-    -- Output text as-is, just add indentation
-    for line in jd.dependencies:gmatch("[^\r\n]+") do
+    -- Output text as-is, just add indentation (preserving empty lines)
+    for _, line in ipairs(split_lines(jd.dependencies)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -414,8 +432,8 @@ local function job_details_to_text(job_details)
   -- Approach section
   table.insert(lines, "Approach (brief plan)")
   if jd.approach and jd.approach ~= "" then
-    -- Output text as-is, just add indentation
-    for line in jd.approach:gmatch("[^\r\n]+") do
+    -- Output text as-is, just add indentation (preserving empty lines)
+    for _, line in ipairs(split_lines(jd.approach)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -426,8 +444,8 @@ local function job_details_to_text(job_details)
   -- Risks section
   table.insert(lines, "Risks")
   if jd.risks and jd.risks ~= "" then
-    -- Output text as-is, just add indentation
-    for line in jd.risks:gmatch("[^\r\n]+") do
+    -- Output text as-is, just add indentation (preserving empty lines)
+    for _, line in ipairs(split_lines(jd.risks)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -438,8 +456,8 @@ local function job_details_to_text(job_details)
   -- Validation / Test Plan section
   table.insert(lines, "Validation / Test Plan")
   if jd.validation_test_plan and jd.validation_test_plan ~= "" then
-    -- Output text as-is, just add indentation
-    for line in jd.validation_test_plan:gmatch("[^\r\n]+") do
+    -- Output text as-is, just add indentation (preserving empty lines)
+    for _, line in ipairs(split_lines(jd.validation_test_plan)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -604,15 +622,26 @@ local function text_to_job_details(text)
         table.insert(context_lines, "")
       end
 
-    -- Outcome section content - capture ALL lines (free-form text)
-    elseif current_section == "outcome" and line:match("^%s+") then
-      -- Capture any indented line (with or without bullets)
-      local content = line:match("^%s+(.*)$")
-      if content and content ~= "" then
+    -- Outcome section content - capture ALL lines, preserving content-level indentation
+    elseif current_section == "outcome" then
+      -- Handle empty lines (preserve for paragraph breaks)
+      if line == "" then
+        if #section_lines > 0 then
+          table.insert(section_lines, "")
+        end
+      -- Lines with 2+ spaces: strip exactly 2 spaces (section indent), preserve rest
+      elseif line:match("^  ") then
+        local content = line:sub(3)  -- Remove first 2 spaces only
         table.insert(section_lines, content)
-      elseif #section_lines > 0 then
-        -- Preserve internal empty lines
-        table.insert(section_lines, "")
+      -- Lines with other whitespace: strip all leading whitespace
+      elseif line:match("^%s+") then
+        local content = line:match("^%s+(.*)$")
+        if content and content ~= "" then
+          table.insert(section_lines, content)
+        end
+      -- Lines without leading whitespace: capture as-is (user typed without indent)
+      else
+        table.insert(section_lines, line)
       end
 
     -- Scope section content
@@ -633,58 +662,115 @@ local function text_to_job_details(text)
       end
       current_subsection = "out"
       section_lines = {}
-    elseif current_section == "scope" and current_subsection and line:match("^%s+%s+%s+%s+") then
-      -- Capture ALL text indented 4+ spaces
-      local content = line:match("^%s+%s+%s+%s+(.*)$")
-      if content and content ~= "" then
+    elseif current_section == "scope" and current_subsection then
+      -- Handle empty lines (preserve for paragraph breaks)
+      if line == "" then
+        if #section_lines > 0 then
+          table.insert(section_lines, "")
+        end
+      -- Lines with 4+ spaces: strip exactly 4 spaces (scope indent), preserve rest
+      elseif line:match("^    ") then
+        local content = line:sub(5)  -- Remove first 4 spaces only
         table.insert(section_lines, content)
-      elseif #section_lines > 0 then
-        table.insert(section_lines, "")
+      -- Lines with other whitespace: strip all leading whitespace
+      elseif line:match("^%s+") then
+        local content = line:match("^%s+(.*)$")
+        if content and content ~= "" then
+          table.insert(section_lines, content)
+        end
+      -- Lines without leading whitespace: capture as-is (user typed without indent)
+      else
+        table.insert(section_lines, line)
       end
 
-    -- Requirements section content - capture ALL indented text
-    elseif current_section == "requirements" and line:match("^%s+") then
-      local content = line:match("^%s+(.*)$")
-      if content and content ~= "" then
+    -- Requirements section content - capture text, preserving content-level indentation
+    elseif current_section == "requirements" then
+      if line == "" then
+        if #section_lines > 0 then
+          table.insert(section_lines, "")
+        end
+      elseif line:match("^  ") then
+        local content = line:sub(3)
         table.insert(section_lines, content)
-      elseif #section_lines > 0 then
-        table.insert(section_lines, "")
+      elseif line:match("^%s+") then
+        local content = line:match("^%s+(.*)$")
+        if content and content ~= "" then
+          table.insert(section_lines, content)
+        end
+      else
+        table.insert(section_lines, line)
       end
 
-    -- Dependencies section content - capture ALL indented text
-    elseif current_section == "dependencies" and line:match("^%s+") then
-      local content = line:match("^%s+(.*)$")
-      if content and content ~= "" then
+    -- Dependencies section content - capture text, preserving content-level indentation
+    elseif current_section == "dependencies" then
+      if line == "" then
+        if #section_lines > 0 then
+          table.insert(section_lines, "")
+        end
+      elseif line:match("^  ") then
+        local content = line:sub(3)
         table.insert(section_lines, content)
-      elseif #section_lines > 0 then
-        table.insert(section_lines, "")
+      elseif line:match("^%s+") then
+        local content = line:match("^%s+(.*)$")
+        if content and content ~= "" then
+          table.insert(section_lines, content)
+        end
+      else
+        table.insert(section_lines, line)
       end
 
-    -- Approach section content - capture ALL indented text
-    elseif current_section == "approach" and line:match("^%s+") then
-      local content = line:match("^%s+(.*)$")
-      if content and content ~= "" then
+    -- Approach section content - capture text, preserving content-level indentation
+    elseif current_section == "approach" then
+      if line == "" then
+        if #section_lines > 0 then
+          table.insert(section_lines, "")
+        end
+      elseif line:match("^  ") then
+        local content = line:sub(3)
         table.insert(section_lines, content)
-      elseif #section_lines > 0 then
-        table.insert(section_lines, "")
+      elseif line:match("^%s+") then
+        local content = line:match("^%s+(.*)$")
+        if content and content ~= "" then
+          table.insert(section_lines, content)
+        end
+      else
+        table.insert(section_lines, line)
       end
 
-    -- Risks section content - capture ALL indented text
-    elseif current_section == "risks" and line:match("^%s+") then
-      local content = line:match("^%s+(.*)$")
-      if content and content ~= "" then
+    -- Risks section content - capture text, preserving content-level indentation
+    elseif current_section == "risks" then
+      if line == "" then
+        if #section_lines > 0 then
+          table.insert(section_lines, "")
+        end
+      elseif line:match("^  ") then
+        local content = line:sub(3)
         table.insert(section_lines, content)
-      elseif #section_lines > 0 then
-        table.insert(section_lines, "")
+      elseif line:match("^%s+") then
+        local content = line:match("^%s+(.*)$")
+        if content and content ~= "" then
+          table.insert(section_lines, content)
+        end
+      else
+        table.insert(section_lines, line)
       end
 
-    -- Validation section content - capture ALL indented text
-    elseif current_section == "validation" and line:match("^%s+") then
-      local content = line:match("^%s+(.*)$")
-      if content and content ~= "" then
+    -- Validation section content - capture text, preserving content-level indentation
+    elseif current_section == "validation" then
+      if line == "" then
+        if #section_lines > 0 then
+          table.insert(section_lines, "")
+        end
+      elseif line:match("^  ") then
+        local content = line:sub(3)
         table.insert(section_lines, content)
-      elseif #section_lines > 0 then
-        table.insert(section_lines, "")
+      elseif line:match("^%s+") then
+        local content = line:match("^%s+(.*)$")
+        if content and content ~= "" then
+          table.insert(section_lines, content)
+        end
+      else
+        table.insert(section_lines, line)
       end
     end
   end
@@ -757,8 +843,8 @@ local function component_details_to_text(component_details)
   -- Capabilities / Features section
   table.insert(lines, "Capabilities / Features")
   if cd.capabilities and cd.capabilities ~= "" then
-    -- Output text as-is, just add indentation
-    for line in cd.capabilities:gmatch("[^\r\n]+") do
+    -- Output text as-is, just add indentation (preserving empty lines)
+    for _, line in ipairs(split_lines(cd.capabilities)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -769,7 +855,7 @@ local function component_details_to_text(component_details)
   -- Acceptance Criteria section
   table.insert(lines, "Acceptance Criteria")
   if cd.acceptance_criteria and cd.acceptance_criteria ~= "" then
-    for line in cd.acceptance_criteria:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(cd.acceptance_criteria)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -780,7 +866,7 @@ local function component_details_to_text(component_details)
   -- Architecture / Design section
   table.insert(lines, "Architecture / Design")
   if cd.architecture_design and cd.architecture_design ~= "" then
-    for line in cd.architecture_design:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(cd.architecture_design)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -791,7 +877,7 @@ local function component_details_to_text(component_details)
   -- Interfaces / Integration Points section
   table.insert(lines, "Interfaces / Integration Points")
   if cd.interfaces_integration and cd.interfaces_integration ~= "" then
-    for line in cd.interfaces_integration:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(cd.interfaces_integration)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -802,7 +888,7 @@ local function component_details_to_text(component_details)
   -- Quality Attributes section
   table.insert(lines, "Quality Attributes")
   if cd.quality_attributes and cd.quality_attributes ~= "" then
-    for line in cd.quality_attributes:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(cd.quality_attributes)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -813,7 +899,7 @@ local function component_details_to_text(component_details)
   -- Related Components section
   table.insert(lines, "Related Components")
   if cd.related_components and cd.related_components ~= "" then
-    for line in cd.related_components:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(cd.related_components)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -964,15 +1050,28 @@ local function text_to_component_details(text)
         table.insert(purpose_lines, "")
       end
 
-    -- Section content - capture ALL indented text
+    -- Section content - capture text, preserving content-level indentation
     elseif (current_section == "capabilities" or current_section == "acceptance_criteria" or
             current_section == "architecture" or current_section == "interfaces" or
-            current_section == "quality_attributes" or current_section == "related_components") and line:match("^%s+") then
-      local content = line:match("^%s+(.*)$")
-      if content and content ~= "" then
+            current_section == "quality_attributes" or current_section == "related_components") then
+      -- Handle empty lines (preserve for paragraph breaks)
+      if line == "" then
+        if #section_lines > 0 then
+          table.insert(section_lines, "")
+        end
+      -- Lines with 2+ spaces: strip exactly 2 spaces (section indent), preserve rest
+      elseif line:match("^  ") then
+        local content = line:sub(3)  -- Remove first 2 spaces only
         table.insert(section_lines, content)
-      elseif #section_lines > 0 then
-        table.insert(section_lines, "")
+      -- Lines with other whitespace (1 space, tab, etc): strip all leading whitespace
+      elseif line:match("^%s+") then
+        local content = line:match("^%s+(.*)$")
+        if content and content ~= "" then
+          table.insert(section_lines, content)
+        end
+      -- Lines without leading whitespace: capture as-is (user typed without indent)
+      else
+        table.insert(section_lines, line)
       end
 
     -- Other section content (capture everything)
@@ -1051,7 +1150,7 @@ local function area_details_to_text(area_details)
   -- Goals / Objectives section
   table.insert(lines, "Goals / Objectives")
   if ad.goals_objectives and ad.goals_objectives ~= "" then
-    for line in ad.goals_objectives:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(ad.goals_objectives)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -1062,7 +1161,7 @@ local function area_details_to_text(area_details)
   -- Scope / Boundaries section
   table.insert(lines, "Scope / Boundaries")
   if ad.scope_boundaries and ad.scope_boundaries ~= "" then
-    for line in ad.scope_boundaries:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(ad.scope_boundaries)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -1073,7 +1172,7 @@ local function area_details_to_text(area_details)
   -- Key Components section
   table.insert(lines, "Key Components")
   if ad.key_components and ad.key_components ~= "" then
-    for line in ad.key_components:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(ad.key_components)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -1084,7 +1183,7 @@ local function area_details_to_text(area_details)
   -- Success Metrics / KPIs section
   table.insert(lines, "Success Metrics / KPIs")
   if ad.success_metrics and ad.success_metrics ~= "" then
-    for line in ad.success_metrics:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(ad.success_metrics)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -1095,7 +1194,7 @@ local function area_details_to_text(area_details)
   -- Stakeholders section
   table.insert(lines, "Stakeholders")
   if ad.stakeholders and ad.stakeholders ~= "" then
-    for line in ad.stakeholders:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(ad.stakeholders)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -1106,7 +1205,7 @@ local function area_details_to_text(area_details)
   -- Dependencies / Constraints section
   table.insert(lines, "Dependencies / Constraints")
   if ad.dependencies_constraints and ad.dependencies_constraints ~= "" then
-    for line in ad.dependencies_constraints:gmatch("[^\r\n]+") do
+    for _, line in ipairs(split_lines(ad.dependencies_constraints)) do
       table.insert(lines, "  " .. line)
     end
   else
@@ -1256,15 +1355,28 @@ local function text_to_area_details(text)
         table.insert(vision_lines, "")
       end
 
-    -- Section content - capture ALL indented text
+    -- Section content - capture text, preserving content-level indentation
     elseif (current_section == "goals" or current_section == "scope" or
             current_section == "components" or current_section == "metrics" or
-            current_section == "stakeholders" or current_section == "dependencies") and line:match("^%s+") then
-      local content = line:match("^%s+(.*)$")
-      if content and content ~= "" then
+            current_section == "stakeholders" or current_section == "dependencies") then
+      -- Handle empty lines (preserve for paragraph breaks)
+      if line == "" then
+        if #section_lines > 0 then
+          table.insert(section_lines, "")
+        end
+      -- Lines with 2+ spaces: strip exactly 2 spaces (section indent), preserve rest
+      elseif line:match("^  ") then
+        local content = line:sub(3)  -- Remove first 2 spaces only
         table.insert(section_lines, content)
-      elseif #section_lines > 0 then
-        table.insert(section_lines, "")
+      -- Lines with other whitespace (1 space, tab, etc): strip all leading whitespace
+      elseif line:match("^%s+") then
+        local content = line:match("^%s+(.*)$")
+        if content and content ~= "" then
+          table.insert(section_lines, content)
+        end
+      -- Lines without leading whitespace: capture as-is (user typed without indent)
+      else
+        table.insert(section_lines, line)
       end
 
     -- Strategic Context section content (capture everything)

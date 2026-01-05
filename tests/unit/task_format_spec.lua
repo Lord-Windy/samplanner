@@ -512,4 +512,130 @@ Validation / Test Plan
       assert.are.equal(user_typed, parsed.details.purpose)
     end)
   end)
+
+  describe("Markdown content preservation", function()
+    it("should preserve markdown in Interfaces / Integration Points", function()
+      -- This is exactly what the user tried to save
+      local markdown_content = [[**Input from 3.1 (Tiling)**
+- Tile pixel buffer (8×8 RGB/RGBA for GBC)
+- Tile metadata (tile_id, has_transparency flag)
+
+**Output to 3.3/3.4 (Palette optimization / Deduplication)**
+- Quantized tile (palette + indexed pixels)
+- Per-tile palette (may be merged/optimized in later stage)
+- Quantization metadata
+
+**Configuration input**
+- Console profile (defines max_colors, bit_depth)
+- Algorithm selection
+- Dithering preference]]
+
+      local component_details = models.ComponentDetails.new({
+        purpose = "Test component",
+        interfaces_integration = markdown_content
+      })
+      local original = models.Task.new("3.2", "Color Quantization", component_details, nil, {}, "")
+
+      -- Convert to text (as displayed in buffer)
+      local text = task_format.task_to_text(original, "Component")
+
+      -- Verify the text contains our markdown with proper indentation
+      assert.is_true(text:find("Interfaces / Integration Points") ~= nil)
+      assert.is_true(text:find("%*%*Input from 3%.1") ~= nil)
+
+      -- Parse back (simulating save)
+      local parsed = task_format.text_to_task(text, "Component")
+
+      -- The markdown content should be preserved exactly
+      assert.are.equal(markdown_content, parsed.details.interfaces_integration)
+    end)
+
+    it("should preserve complex markdown with headers and nested bullets", function()
+      local markdown_content = [[### API Specification
+**POST /quantize**
+  - Request body: tile data
+  - Response: quantized result
+
+### Internal Interfaces
+- `QuantizeOptions` struct
+  - max_colors: u8
+  - dither_mode: enum]]
+
+      local component_details = models.ComponentDetails.new({
+        purpose = "Test",
+        acceptance_criteria = markdown_content
+      })
+      local original = models.Task.new("1", "Test", component_details, nil, {}, "")
+
+      local text = task_format.task_to_text(original, "Component")
+      local parsed = task_format.text_to_task(text, "Component")
+
+      assert.are.equal(markdown_content, parsed.details.acceptance_criteria)
+    end)
+
+    it("should preserve content when user types without leading indent", function()
+      -- Simulate what happens when user edits: they type without the 2-space indent
+      local text = [[
+── Task: 3.2 ───────────────────
+Name: Color Quantization
+
+── Details ──────────────────────────
+Purpose / What It Is
+Test component
+
+Capabilities / Features
+  -
+
+Acceptance Criteria
+  -
+
+Architecture / Design
+  -
+
+Interfaces / Integration Points
+**Input from 3.1 (Tiling)**
+- Tile pixel buffer (8×8 RGB/RGBA for GBC)
+- Tile metadata (tile_id, has_transparency flag)
+
+Quality Attributes
+  -
+
+Related Components
+  -
+
+Other
+
+
+── Notes ────────────────────────────
+
+── Tags ─────────────────────────────
+]]
+
+      local parsed = task_format.text_to_task(text, "Component")
+
+      -- Content typed without indent should still be captured
+      assert.is_true(parsed.details.interfaces_integration:find("%*%*Input from 3%.1") ~= nil)
+      assert.is_true(parsed.details.interfaces_integration:find("Tile pixel buffer") ~= nil)
+    end)
+
+    it("should preserve blank lines within markdown content", function()
+      local markdown_content = [[First section
+
+Second section with blank line above
+
+Third section]]
+
+      local component_details = models.ComponentDetails.new({
+        purpose = "Test",
+        interfaces_integration = markdown_content
+      })
+      local original = models.Task.new("1", "Test", component_details, nil, {}, "")
+
+      local text = task_format.task_to_text(original, "Component")
+      local parsed = task_format.text_to_task(text, "Component")
+
+      -- Should preserve the blank lines between sections
+      assert.is_true(parsed.details.interfaces_integration:find("First section\n\nSecond section") ~= nil)
+    end)
+  end)
 end)
