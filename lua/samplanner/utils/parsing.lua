@@ -154,4 +154,138 @@ function M.get_checked_value(line, options)
   return ""
 end
 
+-- ============================================================================
+-- Markdown Format Utilities
+-- ============================================================================
+
+-- Create H1 header
+-- @param title: string - Header text
+-- @return string - "# Title\n"
+function M.format_h1(title)
+  return "# " .. title .. "\n"
+end
+
+-- Create H2 header
+-- @param section: string - Section name
+-- @return string - "## Section\n"
+function M.format_h2(section)
+  return "## " .. section .. "\n"
+end
+
+-- Create H3 header
+-- @param subsection: string - Subsection name
+-- @return string - "### Subsection\n"
+function M.format_h3(subsection)
+  return "### " .. subsection .. "\n"
+end
+
+-- Format task title with ID and name
+-- @param id: string - Task ID
+-- @param name: string - Task name
+-- @return string - "# Task: ID - Name\n"
+function M.format_task_title(id, name)
+  return "# Task: " .. id .. " - " .. name .. "\n"
+end
+
+-- Format a Markdown section with H2 header and content
+-- @param lines: table - Array to append formatted lines to
+-- @param header: string - Section header text
+-- @param content: string - Content to format (may be multiline)
+function M.format_md_section(lines, header, content)
+  table.insert(lines, "## " .. header)
+  if content and content ~= "" then
+    for _, line in ipairs(M.split_lines(content)) do
+      table.insert(lines, line)
+    end
+  end
+  table.insert(lines, "")
+end
+
+-- Format a Markdown subsection with H3 header and content
+-- @param lines: table - Array to append formatted lines to
+-- @param header: string - Subsection header text
+-- @param content: string - Content to format (may be multiline)
+function M.format_md_subsection(lines, header, content)
+  table.insert(lines, "### " .. header)
+  if content and content ~= "" then
+    for _, line in ipairs(M.split_lines(content)) do
+      table.insert(lines, line)
+    end
+  end
+  table.insert(lines, "")
+end
+
+-- Format a GFM-style checkbox
+-- @param checked: boolean - Whether checkbox is checked
+-- @param label: string - Checkbox label
+-- @return string - "- [x] Label" or "- [ ] Label"
+function M.format_gfm_checkbox(checked, label)
+  local mark = checked and "[x]" or "[ ]"
+  return "- " .. mark .. " " .. label
+end
+
+-- Format a vertical group of GFM checkboxes
+-- @param options: table - Array of {label, value} pairs
+-- @param selected_value: string - The currently selected value
+-- @return string - Multiline string of checkboxes
+function M.format_gfm_checkbox_group(options, selected_value)
+  local result = {}
+  for _, opt in ipairs(options) do
+    local checked = (opt.value == selected_value)
+    table.insert(result, M.format_gfm_checkbox(checked, opt.label))
+  end
+  return table.concat(result, "\n")
+end
+
+-- Parse task ID and name from H1 header
+-- @param line: string - Line to parse
+-- @return string, string - Task ID and name, or nil, nil if not a task header
+function M.parse_h1_task_header(line)
+  local id, name = line:match("^# Task:%s*([^%-]+)%s*%-%s*(.*)$")
+  if id then
+    return vim.trim(id), vim.trim(name)
+  end
+  return nil, nil
+end
+
+-- Check if line is an H2 header and extract title
+-- @param line: string - Line to check
+-- @return boolean, string - true and title if H2, false and nil otherwise
+function M.is_h2_header(line)
+  local title = line:match("^## ([^#].*)$")
+  if title then
+    return true, vim.trim(title)
+  end
+  return false, nil
+end
+
+-- Check if line is an H3 header and extract title
+-- @param line: string - Line to check
+-- @return boolean, string - true and title if H3, false and nil otherwise
+function M.is_h3_header(line)
+  local title = line:match("^### ([^#].*)$")
+  if title then
+    return true, vim.trim(title)
+  end
+  return false, nil
+end
+
+-- Parse checked value from a GFM checkbox line
+-- @param line: string - Line to parse
+-- @param options: table - Array of {pattern, value} pairs
+-- @return string - Matched value or nil if not checked
+function M.parse_gfm_checkbox_value(line, options)
+  -- Check if line is a checked GFM checkbox
+  if not line:match("^%- %[[xX]%]") then
+    return nil
+  end
+
+  for _, opt in ipairs(options) do
+    if line:match("%[x%]%s+" .. opt.pattern) or line:match("%[X%]%s+" .. opt.pattern) then
+      return opt.value
+    end
+  end
+  return nil
+end
+
 return M

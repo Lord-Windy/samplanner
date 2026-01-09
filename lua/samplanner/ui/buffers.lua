@@ -103,7 +103,7 @@ function M.create_task_buffer(project, task_id, opts)
     return existing, nil
   end
 
-  local buf = create_scratch_buffer(buf_name, "samplanner_task")
+  local buf = create_scratch_buffer(buf_name, "markdown")
   vim.api.nvim_buf_set_option(buf, 'buflisted', true)
   local text = task_format.task_to_text(task, node_type)
   local lines = vim.split(text, "\n")
@@ -204,7 +204,7 @@ function M.create_session_buffer(project, session_index, opts)
     return existing, nil
   end
 
-  local buf = create_scratch_buffer(buf_name, "samplanner_session")
+  local buf = create_scratch_buffer(buf_name, "markdown")
   vim.api.nvim_buf_set_option(buf, 'buflisted', true)
   local text = session_format.session_to_text(session)
   local lines = vim.split(text, "\n")

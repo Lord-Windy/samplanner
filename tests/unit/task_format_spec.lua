@@ -1,4 +1,4 @@
--- Unit tests for task text format conversion
+-- Unit tests for task text format conversion (Markdown format)
 -- Run with: luajit tests/unit/task_format_spec.lua
 
 -- Add the lua directory to the package path
@@ -30,16 +30,14 @@ describe("Task Format", function()
 
       local text = task_format.task_to_text(task, "Area")
 
-      assert.is_true(text:find("Task: 1") ~= nil)
-      assert.is_true(text:find("Name: Area Task") ~= nil)
-      assert.is_true(text:find("Details") ~= nil)
-      assert.is_true(text:find("Some details") ~= nil)
-      assert.is_true(text:find("Notes") ~= nil)
+      assert.is_true(text:find("# Task: 1 %- Area Task") ~= nil)
+      assert.is_true(text:find("## Details") ~= nil)
+      assert.is_true(text:find("## Notes") ~= nil)
       assert.is_true(text:find("some notes") ~= nil)
-      assert.is_true(text:find("Tags") ~= nil)
+      assert.is_true(text:find("## Tags") ~= nil)
       assert.is_true(text:find("tag1") ~= nil)
       -- Should NOT have Estimation section
-      assert.is_nil(text:find("── Estimation"))
+      assert.is_nil(text:find("## Estimation"))
     end)
 
     it("should include estimation section for Jobs", function()
@@ -52,16 +50,16 @@ describe("Task Format", function()
       local text = task_format.task_to_text(task, "Job")
 
       -- Should have Estimation section
-      assert.is_true(text:find("── Estimation") ~= nil)
-      assert.is_true(text:find("Type") ~= nil)
-      assert.is_true(text:find("%[x%] Bugfix") ~= nil)
-      assert.is_true(text:find("%[x%] High") ~= nil)
+      assert.is_true(text:find("## Estimation") ~= nil)
+      assert.is_true(text:find("### Type") ~= nil)
+      assert.is_true(text:find("%- %[x%] Bugfix") ~= nil)
+      assert.is_true(text:find("%- %[x%] High") ~= nil)
     end)
 
     it("should format full estimation template", function()
       local estimation = models.Estimation.new({
         work_type = "new_work",
-        assumptions = {"API stable", "No DB changes"},
+        assumptions = "- API stable\n- No DB changes",
         effort = {
           method = "three_point",
           base_hours = 8,
@@ -76,24 +74,24 @@ describe("Task Format", function()
           milestones = {{ name = "Design", date = "2025-01-16" }}
         },
         post_estimate_notes = {
-          could_be_smaller = {"Reuse code"},
-          could_be_bigger = {"Scope creep"},
-          ignored_last_time = {"Testing"}
+          could_be_smaller = "- Reuse code",
+          could_be_bigger = "- Scope creep",
+          ignored_last_time = "- Testing"
         }
       })
       local task = models.Task.new("1", "Task", "", estimation, {}, "")
 
       local text = task_format.task_to_text(task, "Job")
 
-      assert.is_true(text:find("%[x%] New work") ~= nil)
+      assert.is_true(text:find("%- %[x%] New work") ~= nil)
       assert.is_true(text:find("API stable") ~= nil)
       assert.is_true(text:find("No DB changes") ~= nil)
-      assert.is_true(text:find("%[x%] 3%-point") ~= nil)
+      assert.is_true(text:find("%- %[x%] 3%-point") ~= nil)
       assert.is_true(text:find("Base effort: 8h") ~= nil)
       assert.is_true(text:find("Buffer: 20%%") ~= nil)
       assert.is_true(text:find("unknowns") ~= nil)
       assert.is_true(text:find("Total: 10h") ~= nil)
-      assert.is_true(text:find("%[x%] Med") ~= nil)
+      assert.is_true(text:find("%- %[x%] Med") ~= nil)
       assert.is_true(text:find("Start: 2025%-01%-15") ~= nil)
       assert.is_true(text:find("Target finish: 2025%-01%-20") ~= nil)
       assert.is_true(text:find("Design — 2025%-01%-16") ~= nil)
@@ -106,39 +104,33 @@ describe("Task Format", function()
   describe("text_to_task", function()
     it("should parse a simple task without estimation", function()
       local text = [[
-── Task: 1 ───────────────────
-Name: My Task
+# Task: 1 - My Task
 
-── Details ──────────────────────────
-Vision / Purpose
+## Details
+
+### Vision / Purpose
 Task description here
 
-Goals / Objectives
-  - Goal 1
-  - Goal 2
+### Goals / Objectives
+- Goal 1
+- Goal 2
 
-Scope / Boundaries
-  -
+### Scope / Boundaries
 
-Key Components
-  -
+### Key Components
 
-Success Metrics / KPIs
-  -
+### Success Metrics / KPIs
 
-Stakeholders
-  -
+### Stakeholders
 
-Dependencies / Constraints
-  -
+### Dependencies / Constraints
 
-Strategic Context
+### Strategic Context
 
-
-── Notes ────────────────────────────
+## Notes
 Some notes
 
-── Tags ─────────────────────────────
+## Tags
 bug, feature
 ]]
 
@@ -148,7 +140,7 @@ bug, feature
       assert.are.equal("My Task", task.name)
       assert.are.equal("table", type(task.details))
       assert.are.equal("Task description here", task.details.vision_purpose)
-      assert.are.same({"Goal 1", "Goal 2"}, task.details.goals_objectives)
+      assert.are.equal("- Goal 1\n- Goal 2", task.details.goals_objectives)
       assert.is_nil(task.estimation)
       assert.are.equal("Some notes", task.notes)
       assert.are.same({"bug", "feature"}, task.tags)
@@ -156,48 +148,78 @@ bug, feature
 
     it("should parse estimation for Jobs", function()
       local text = [[
-── Task: 1.1.1 ───────────────────
-Name: Job Task
+# Task: 1.1.1 - Job Task
 
-── Details ──────────────────────────
+## Details
 
-── Estimation ───────────────────────
-Type
-  [ ] New work   [x] Change   [ ] Bugfix   [ ] Research/Spike
+### Context / Why
 
-Assumptions
-  - API is ready
-  - Tests exist
+- [ ] Completed
 
-Effort (hours)
-Method:
-  [x] Similar work   [ ] 3-point   [ ] Gut feel
+### Outcome / Definition of Done
 
-Estimate:
-  - Base effort: 4h
-  - Buffer: 15%  (reason: minor unknowns)
-  - Total: 5h
+### Scope
+**In scope:**
 
-Confidence:
-  [ ] Low  [x] Med  [ ] High
+**Out of scope:**
 
-Schedule
-  - Start: 2025-02-01
-  - Target finish: 2025-02-03
-  - Milestones:
-    - Code complete — 2025-02-02
+### Requirements / Constraints
 
-Post-estimate notes
-  - What could make this smaller?
-    - Already have similar code
-  - What could make this bigger?
-    - Requirements change
-  - What did I ignore / forget last time?
-    - Code review time
+### Dependencies
 
-── Notes ────────────────────────────
+### Approach (brief plan)
 
-── Tags ─────────────────────────────
+### Risks
+
+### Validation / Test Plan
+
+## Estimation
+
+### Type
+- [ ] New work
+- [x] Change
+- [ ] Bugfix
+- [ ] Research/Spike
+
+### Assumptions
+- API is ready
+- Tests exist
+
+### Effort (hours)
+**Method:**
+- [x] Similar work
+- [ ] 3-point
+- [ ] Gut feel
+
+**Estimate:**
+- Base effort: 4h
+- Buffer: 15% (reason: minor unknowns)
+- Total: 5h
+
+### Confidence
+- [ ] Low
+- [x] Med
+- [ ] High
+
+### Schedule
+- Start: 2025-02-01
+- Target finish: 2025-02-03
+- Milestones:
+  - Code complete — 2025-02-02
+
+### Post-estimate notes
+**What could make this smaller?**
+- Already have similar code
+
+**What could make this bigger?**
+- Requirements change
+
+**What did I ignore / forget last time?**
+- Code review time
+
+## Notes
+
+## Tags
 enhancement
 ]]
 
@@ -209,7 +231,7 @@ enhancement
 
       local est = task.estimation
       assert.are.equal("change", est.work_type)
-      assert.are.same({"API is ready", "Tests exist"}, est.assumptions)
+      assert.are.equal("- API is ready\n- Tests exist", est.assumptions)
       assert.are.equal("similar_work", est.effort.method)
       assert.are.equal(4, est.effort.base_hours)
       assert.are.equal(15, est.effort.buffer_percent)
@@ -221,16 +243,16 @@ enhancement
       assert.are.equal(1, #est.schedule.milestones)
       assert.are.equal("Code complete", est.schedule.milestones[1].name)
       assert.are.equal("2025-02-02", est.schedule.milestones[1].date)
-      assert.are.same({"Already have similar code"}, est.post_estimate_notes.could_be_smaller)
-      assert.are.same({"Requirements change"}, est.post_estimate_notes.could_be_bigger)
-      assert.are.same({"Code review time"}, est.post_estimate_notes.ignored_last_time)
+      assert.are.equal("- Already have similar code", est.post_estimate_notes.could_be_smaller)
+      assert.are.equal("- Requirements change", est.post_estimate_notes.could_be_bigger)
+      assert.are.equal("- Code review time", est.post_estimate_notes.ignored_last_time)
       assert.are.same({"enhancement"}, task.tags)
     end)
 
     it("should round-trip task with estimation", function()
       local original_est = models.Estimation.new({
         work_type = "bugfix",
-        assumptions = {"Bug is reproducible"},
+        assumptions = "- Bug is reproducible",
         effort = {
           method = "gut_feel",
           base_hours = 2,
@@ -245,23 +267,23 @@ enhancement
           milestones = {}
         },
         post_estimate_notes = {
-          could_be_smaller = {},
-          could_be_bigger = {"Root cause unclear"},
-          ignored_last_time = {}
+          could_be_smaller = "",
+          could_be_bigger = "- Root cause unclear",
+          ignored_last_time = ""
         }
       })
 
       -- For Job type, create JobDetails object
       local original_job_details = models.JobDetails.new({
         context_why = "Bug is causing user complaints",
-        outcome_dod = {"Bug fixed", "Tests passing"},
-        scope_in = {"Fix root cause"},
-        scope_out = {},
-        requirements_constraints = {"No API changes"},
-        dependencies = {},
-        approach = {"Debug", "Fix", "Test"},
-        risks = {"Root cause unclear"},
-        validation_test_plan = {"Unit tests", "Manual verification"}
+        outcome_dod = "- Bug fixed\n- Tests passing",
+        scope_in = "- Fix root cause",
+        scope_out = "",
+        requirements_constraints = "- No API changes",
+        dependencies = "",
+        approach = "- Debug\n- Fix\n- Test",
+        risks = "- Root cause unclear",
+        validation_test_plan = "- Unit tests\n- Manual verification"
       })
 
       local original = models.Task.new("2.1", "Fix Bug", original_job_details, original_est, {"urgent"}, "Check logs first")
@@ -278,15 +300,15 @@ enhancement
       -- For Job type, details is a JobDetails object
       assert.are.equal("table", type(parsed.details))
       assert.are.equal(original_job_details.context_why, parsed.details.context_why)
-      assert.are.same(original_job_details.outcome_dod, parsed.details.outcome_dod)
-      assert.are.same(original_job_details.scope_in, parsed.details.scope_in)
-      assert.are.same(original_job_details.approach, parsed.details.approach)
+      assert.are.equal(original_job_details.outcome_dod, parsed.details.outcome_dod)
+      assert.are.equal(original_job_details.scope_in, parsed.details.scope_in)
+      assert.are.equal(original_job_details.approach, parsed.details.approach)
 
       assert.are.equal(original.notes, parsed.notes)
       assert.are.same(original.tags, parsed.tags)
 
       assert.are.equal(original_est.work_type, parsed.estimation.work_type)
-      assert.are.same(original_est.assumptions, parsed.estimation.assumptions)
+      assert.are.equal(original_est.assumptions, parsed.estimation.assumptions)
       assert.are.equal(original_est.effort.method, parsed.estimation.effort.method)
       assert.are.equal(original_est.effort.base_hours, parsed.estimation.effort.base_hours)
       assert.are.equal(original_est.confidence, parsed.estimation.confidence)
@@ -304,7 +326,7 @@ enhancement
 
       local text = task_format.task_to_text(task, "Job")
 
-      assert.is_true(text:find("%[ %] Completed") ~= nil)
+      assert.is_true(text:find("%- %[ %] Completed") ~= nil)
     end)
 
     it("should format completed job with checked checkbox", function()
@@ -316,47 +338,40 @@ enhancement
 
       local text = task_format.task_to_text(task, "Job")
 
-      assert.is_true(text:find("%[x%] Completed") ~= nil)
+      assert.is_true(text:find("%- %[x%] Completed") ~= nil)
     end)
 
     it("should parse uncompleted job from text", function()
       local text = [[
-── Task: 1 ───────────────────
-Name: Job Task
+# Task: 1 - Job Task
 
-── Details ──────────────────────────
-Context / Why
+## Details
+
+### Context / Why
 Test job
 
-[ ] Completed
+- [ ] Completed
 
-Outcome / Definition of Done
-  -
+### Outcome / Definition of Done
 
-Scope
-  In scope:
-    -
-  Out of scope:
-    -
+### Scope
+**In scope:**
 
-Requirements / Constraints
-  -
+**Out of scope:**
 
-Dependencies
-  -
+### Requirements / Constraints
 
-Approach (brief plan)
-  -
+### Dependencies
 
-Risks
-  -
+### Approach (brief plan)
 
-Validation / Test Plan
-  -
+### Risks
 
-── Notes ────────────────────────────
+### Validation / Test Plan
 
-── Tags ─────────────────────────────
+## Notes
+
+## Tags
 ]]
 
       local task = task_format.text_to_task(text, "Job")
@@ -367,42 +382,35 @@ Validation / Test Plan
 
     it("should parse completed job from text", function()
       local text = [[
-── Task: 1 ───────────────────
-Name: Job Task
+# Task: 1 - Job Task
 
-── Details ──────────────────────────
-Context / Why
+## Details
+
+### Context / Why
 Test job
 
-[x] Completed
+- [x] Completed
 
-Outcome / Definition of Done
-  -
+### Outcome / Definition of Done
 
-Scope
-  In scope:
-    -
-  Out of scope:
-    -
+### Scope
+**In scope:**
 
-Requirements / Constraints
-  -
+**Out of scope:**
 
-Dependencies
-  -
+### Requirements / Constraints
 
-Approach (brief plan)
-  -
+### Dependencies
 
-Risks
-  -
+### Approach (brief plan)
 
-Validation / Test Plan
-  -
+### Risks
 
-── Notes ────────────────────────────
+### Validation / Test Plan
 
-── Tags ─────────────────────────────
+## Notes
+
+## Tags
 ]]
 
       local task = task_format.text_to_task(text, "Job")
@@ -414,7 +422,7 @@ Validation / Test Plan
     it("should roundtrip completed status", function()
       local job_details = models.JobDetails.new({
         context_why = "Completed job",
-        outcome_dod = {"Done"},
+        outcome_dod = "- Done",
         completed = true
       })
       local original = models.Task.new("1", "Job Task", job_details, nil, {}, "")
@@ -425,7 +433,7 @@ Validation / Test Plan
       assert.are.equal("table", type(parsed.details))
       assert.is_true(parsed.details.completed)
       assert.are.equal("Completed job", parsed.details.context_why)
-      assert.are.same({"Done"}, parsed.details.outcome_dod)
+      assert.are.equal("- Done", parsed.details.outcome_dod)
     end)
 
     it("should roundtrip uncompleted status", function()
@@ -539,8 +547,8 @@ Validation / Test Plan
       -- Convert to text (as displayed in buffer)
       local text = task_format.task_to_text(original, "Component")
 
-      -- Verify the text contains our markdown with proper indentation
-      assert.is_true(text:find("Interfaces / Integration Points") ~= nil)
+      -- Verify the text contains our markdown
+      assert.is_true(text:find("### Interfaces / Integration Points") ~= nil)
       assert.is_true(text:find("%*%*Input from 3%.1") ~= nil)
 
       -- Parse back (simulating save)
@@ -574,41 +582,35 @@ Validation / Test Plan
     end)
 
     it("should preserve content when user types without leading indent", function()
-      -- Simulate what happens when user edits: they type without the 2-space indent
+      -- Simulate what happens when user edits the Markdown buffer
       local text = [[
-── Task: 3.2 ───────────────────
-Name: Color Quantization
+# Task: 3.2 - Color Quantization
 
-── Details ──────────────────────────
-Purpose / What It Is
+## Details
+
+### Purpose / What It Is
 Test component
 
-Capabilities / Features
-  -
+### Capabilities / Features
 
-Acceptance Criteria
-  -
+### Acceptance Criteria
 
-Architecture / Design
-  -
+### Architecture / Design
 
-Interfaces / Integration Points
+### Interfaces / Integration Points
 **Input from 3.1 (Tiling)**
 - Tile pixel buffer (8×8 RGB/RGBA for GBC)
 - Tile metadata (tile_id, has_transparency flag)
 
-Quality Attributes
-  -
+### Quality Attributes
 
-Related Components
-  -
+### Related Components
 
-Other
+### Other
 
+## Notes
 
-── Notes ────────────────────────────
-
-── Tags ─────────────────────────────
+## Tags
 ]]
 
       local parsed = task_format.text_to_task(text, "Component")
