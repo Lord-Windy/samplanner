@@ -45,13 +45,20 @@ local function project_to_table(project)
       }
     end
 
-    task_list[id] = {
+    local task_data = {
       name = task.name,
       details = task.details,
       estimation = estimation_data,
       notes = task.notes ~= "" and task.notes or nil,
       tags = task.tags
     }
+
+    -- Include custom fields if present
+    if task.custom and next(task.custom) then
+      task_data.custom = task.custom
+    end
+
+    task_list[id] = task_data
   end
 
   -- Convert time_log

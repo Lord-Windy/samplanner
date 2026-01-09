@@ -126,6 +126,7 @@ function M.JobDetails.new(data)
   self.risks = migrate_field(data.risks, helpers)
   self.validation_test_plan = migrate_field(data.validation_test_plan, helpers)
   self.completed = data.completed or false
+  self.custom = data.custom or {}
   return self
 end
 
@@ -170,6 +171,7 @@ function M.ComponentDetails.new(data)
   self.quality_attributes = migrate_field(data.quality_attributes, helpers)
   self.related_components = migrate_field(data.related_components, helpers)
   self.other = data.other or ""
+  self.custom = data.custom or {}
   return self
 end
 
@@ -212,6 +214,7 @@ function M.AreaDetails.new(data)
   self.stakeholders = migrate_field(data.stakeholders, helpers)
   self.dependencies_constraints = migrate_field(data.dependencies_constraints, helpers)
   self.strategic_context = data.strategic_context or ""
+  self.custom = data.custom or {}
   return self
 end
 
@@ -238,7 +241,7 @@ end
 M.Task = {}
 M.Task.__index = M.Task
 
-function M.Task.new(id, name, details, estimation, tags, notes)
+function M.Task.new(id, name, details, estimation, tags, notes, custom)
   local self = setmetatable({}, M.Task)
   self.id = id or ""
   self.name = name or ""
@@ -280,6 +283,7 @@ function M.Task.new(id, name, details, estimation, tags, notes)
   end
   self.notes = notes or ""
   self.tags = tags or {}
+  self.custom = custom or {}
   return self
 end
 
@@ -455,9 +459,21 @@ local function validate_and_migrate_details(task_data, node_type, notes)
         return config.model_with_data(details), notes
       end
     end
-    -- Table but not conforming structure - migrate to notes
+    -- Table but not conforming structure - create empty details
+    local new_details = config.model_fn()
+    -- Preserve custom fields if they exist
+    if details.custom and type(details.custom) == "table" then
+      new_details.custom = details.custom
+    end
+    -- Also preserve any other unknown fields that might have custom content
+    for k, v in pairs(details) do
+      if k ~= "custom" and not new_details[k] then
+        new_details[k] = v
+      end
+    end
+    -- Migrate the entire details table to notes for backward compatibility
     notes = prepend_migration_note(vim.inspect(details), notes)
-    return config.model_fn(), notes
+    return new_details, notes
   end
 
   -- If details is a string (old format), migrate to notes
@@ -515,7 +531,8 @@ function M.Project.from_table(data)
         details,
         estimation,
         task_data.tags,
-        notes
+        notes,
+        task_data.custom
       )
     end
   end

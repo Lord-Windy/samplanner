@@ -15,6 +15,8 @@ local format_gfm_checkbox_group = parsing.format_gfm_checkbox_group
 local is_h2_header = parsing.is_h2_header
 local is_h3_header = parsing.is_h3_header
 local parse_gfm_checkbox_value = parsing.parse_gfm_checkbox_value
+local normalize_header_to_key = parsing.normalize_header_to_key
+local key_to_header = parsing.key_to_header
 
 -- Work type options for checkboxes
 local WORK_TYPE_OPTIONS = {
@@ -325,6 +327,18 @@ local function job_details_to_text(job_details)
   format_md_subsection(lines, "Risks", jd.risks)
   format_md_subsection(lines, "Validation / Test Plan", jd.validation_test_plan)
 
+  -- Custom H3 sections
+  if jd.custom and next(jd.custom) then
+    for key, value in pairs(jd.custom) do
+      if value and value ~= "" then
+        table.insert(lines, "### " .. key_to_header(key))
+        table.insert(lines, "")
+        table.insert(lines, value)
+        table.insert(lines, "")
+      end
+    end
+  end
+
   return table.concat(lines, "\n")
 end
 
@@ -341,11 +355,25 @@ local function text_to_job_details(text)
     risks = "",
     validation_test_plan = "",
     completed = false,
+    custom = {},
   }
 
   local current_section = nil
   local current_subsection = nil
+  local current_custom_key = nil
   local section_lines = {}
+  local custom_section_lines = {}
+
+  local function save_custom_section()
+    if current_custom_key and #custom_section_lines > 0 then
+      local content = finalize_section(custom_section_lines)
+      if content ~= "" then
+        jd.custom[current_custom_key] = content
+      end
+      current_custom_key = nil
+      custom_section_lines = {}
+    end
+  end
 
   local function save_section()
     if not current_section or #section_lines == 0 then return end
@@ -379,6 +407,7 @@ local function text_to_job_details(text)
 
     if is_h3 then
       save_section()
+      save_custom_section()
       section_lines = {}
       current_subsection = nil
 
@@ -398,6 +427,9 @@ local function text_to_job_details(text)
         current_section = "risks"
       elseif h3_title == "Validation / Test Plan" then
         current_section = "validation"
+      else
+        current_section = "custom"
+        current_custom_key = normalize_header_to_key(h3_title)
       end
 
     -- Completion checkbox
@@ -421,12 +453,15 @@ local function text_to_job_details(text)
       end
 
     -- Content capture for other sections
+    elseif current_section == "custom" and current_custom_key then
+      capture_freeform_line(line, custom_section_lines)
     elseif current_section then
       capture_freeform_line(line, section_lines)
     end
   end
 
   save_section()
+  save_custom_section()
 
   return models.JobDetails.new(jd)
 end
@@ -445,6 +480,18 @@ local function component_details_to_text(component_details)
   format_md_subsection(lines, "Related Components", cd.related_components)
   format_md_subsection(lines, "Other", cd.other)
 
+  -- Custom H3 sections
+  if cd.custom and next(cd.custom) then
+    for key, value in pairs(cd.custom) do
+      if value and value ~= "" then
+        table.insert(lines, "### " .. key_to_header(key))
+        table.insert(lines, "")
+        table.insert(lines, value)
+        table.insert(lines, "")
+      end
+    end
+  end
+
   return table.concat(lines, "\n")
 end
 
@@ -459,10 +506,13 @@ local function text_to_component_details(text)
     quality_attributes = "",
     related_components = "",
     other = "",
+    custom = {},
   }
 
   local current_section = nil
+  local current_custom_key = nil
   local section_lines = {}
+  local custom_section_lines = {}
 
   local section_map = {
     ["Purpose / What It Is"] = "purpose",
@@ -475,6 +525,17 @@ local function text_to_component_details(text)
     ["Other"] = "other",
   }
 
+  local function save_custom_section()
+    if current_custom_key and #custom_section_lines > 0 then
+      local content = finalize_section(custom_section_lines)
+      if content ~= "" then
+        cd.custom[current_custom_key] = content
+      end
+      current_custom_key = nil
+      custom_section_lines = {}
+    end
+  end
+
   local function save_section()
     if not current_section or #section_lines == 0 then return end
     cd[current_section] = finalize_section(section_lines)
@@ -483,17 +544,26 @@ local function text_to_component_details(text)
   for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
     local is_h3, h3_title = is_h3_header(line)
 
-    -- Only treat as section header if it's a known section
-    if is_h3 and section_map[h3_title] then
+    if is_h3 then
       save_section()
+      save_custom_section()
       section_lines = {}
-      current_section = section_map[h3_title]
+
+      if section_map[h3_title] then
+        current_section = section_map[h3_title]
+      else
+        current_section = "custom"
+        current_custom_key = normalize_header_to_key(h3_title)
+      end
+    elseif current_section == "custom" and current_custom_key then
+      capture_freeform_line(line, custom_section_lines)
     elseif current_section then
       capture_freeform_line(line, section_lines)
     end
   end
 
   save_section()
+  save_custom_section()
   return models.ComponentDetails.new(cd)
 end
 
@@ -511,6 +581,18 @@ local function area_details_to_text(area_details)
   format_md_subsection(lines, "Dependencies / Constraints", ad.dependencies_constraints)
   format_md_subsection(lines, "Strategic Context", ad.strategic_context)
 
+  -- Custom H3 sections
+  if ad.custom and next(ad.custom) then
+    for key, value in pairs(ad.custom) do
+      if value and value ~= "" then
+        table.insert(lines, "### " .. key_to_header(key))
+        table.insert(lines, "")
+        table.insert(lines, value)
+        table.insert(lines, "")
+      end
+    end
+  end
+
   return table.concat(lines, "\n")
 end
 
@@ -525,10 +607,13 @@ local function text_to_area_details(text)
     stakeholders = "",
     dependencies_constraints = "",
     strategic_context = "",
+    custom = {},
   }
 
   local current_section = nil
+  local current_custom_key = nil
   local section_lines = {}
+  local custom_section_lines = {}
 
   local section_map = {
     ["Vision / Purpose"] = "vision_purpose",
@@ -541,6 +626,17 @@ local function text_to_area_details(text)
     ["Strategic Context"] = "strategic_context",
   }
 
+  local function save_custom_section()
+    if current_custom_key and #custom_section_lines > 0 then
+      local content = finalize_section(custom_section_lines)
+      if content ~= "" then
+        ad.custom[current_custom_key] = content
+      end
+      current_custom_key = nil
+      custom_section_lines = {}
+    end
+  end
+
   local function save_section()
     if not current_section or #section_lines == 0 then return end
     ad[current_section] = finalize_section(section_lines)
@@ -549,17 +645,26 @@ local function text_to_area_details(text)
   for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
     local is_h3, h3_title = is_h3_header(line)
 
-    -- Only treat as section header if it's a known section
-    if is_h3 and section_map[h3_title] then
+    if is_h3 then
       save_section()
+      save_custom_section()
       section_lines = {}
-      current_section = section_map[h3_title]
+
+      if section_map[h3_title] then
+        current_section = section_map[h3_title]
+      else
+        current_section = "custom"
+        current_custom_key = normalize_header_to_key(h3_title)
+      end
+    elseif current_section == "custom" and current_custom_key then
+      capture_freeform_line(line, custom_section_lines)
     elseif current_section then
       capture_freeform_line(line, section_lines)
     end
   end
 
   save_section()
+  save_custom_section()
   return models.AreaDetails.new(ad)
 end
 
@@ -621,6 +726,19 @@ function M.task_to_text(task, node_type)
   if task.tags and #task.tags > 0 then
     table.insert(lines, table.concat(task.tags, ", "))
   end
+  table.insert(lines, "")
+
+  -- Custom H2 sections
+  if task.custom and next(task.custom) then
+    for key, value in pairs(task.custom) do
+      if value and value ~= "" then
+        table.insert(lines, "## " .. key_to_header(key))
+        table.insert(lines, "")
+        table.insert(lines, value)
+        table.insert(lines, "")
+      end
+    end
+  end
 
   return table.concat(lines, "\n")
 end
@@ -636,9 +754,23 @@ function M.text_to_task(text, node_type)
   local estimation = nil
   local notes = ""
   local tags = {}
+  local custom = {}
+  local current_custom_key = nil
+  local custom_section_content = {}
 
   local current_section = nil
   local section_content = {}
+
+  local function save_custom_section()
+    if current_custom_key and #custom_section_content > 0 then
+      local content = vim.trim(table.concat(custom_section_content, "\n"))
+      if content ~= "" then
+        custom[current_custom_key] = content
+      end
+      current_custom_key = nil
+      custom_section_content = {}
+    end
+  end
 
   local function save_section()
     if current_section == "details" then
@@ -670,11 +802,20 @@ function M.text_to_task(text, node_type)
       current_section = "header"
       section_content = {}
 
+    -- Check for stray H1 headers (other than task header)
+    elseif line:match("^# [^#]") then
+      local h1_content = vim.trim(line:match("^%s*#%s*(.*)$") or "")
+      if notes ~= "" then
+        notes = notes .. "\n\n"
+      end
+      notes = notes .. h1_content
+
     -- Check for H2 section headers
     else
       local is_h2, h2_title = is_h2_header(line)
       if is_h2 then
         save_section()
+        save_custom_section()
         section_content = {}
 
         if h2_title == "Details" then
@@ -686,7 +827,8 @@ function M.text_to_task(text, node_type)
         elseif h2_title == "Tags" then
           current_section = "tags"
         else
-          current_section = nil
+          current_section = "custom"
+          current_custom_key = normalize_header_to_key(h2_title)
         end
 
       -- Tags parsing (comma-separated on single line)
@@ -701,16 +843,21 @@ function M.text_to_task(text, node_type)
         end
 
       -- Content capture for other sections
+      elseif current_section == "custom" and current_custom_key then
+        if line ~= "" or #custom_section_content > 0 then
+          table.insert(custom_section_content, line)
+        end
       elseif current_section and current_section ~= "header" and current_section ~= "tags" then
         table.insert(section_content, line)
       end
     end
   end
 
-  -- Save final section
+  -- Save final sections
   save_section()
+  save_custom_section()
 
-  return models.Task.new(id, name, details, estimation, tags, notes)
+  return models.Task.new(id, name, details, estimation, tags, notes, custom)
 end
 
 return M

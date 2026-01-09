@@ -37,7 +37,7 @@ _G.vim = {
       if not handle then return {} end
       local result = handle:read("*a")
       handle:close()
-      
+
       local files = {}
       for file in result:gmatch("[^\r\n]+") do
         table.insert(files, file)
@@ -52,7 +52,13 @@ _G.vim = {
       end
       return path
     end
-  }
+  },
+  trim = function(s)
+    return s and s:match("^%s*(.-)%s*$") or s
+  end,
+  inspect = function(obj)
+    return dkjson.encode(obj, {indent = true})
+  end
 }
 
 local models = require('samplanner.domain.models')
@@ -449,6 +455,116 @@ describe("FileStorage", function()
       assert.are.same({}, session.deliverables)
       assert.are.same({}, session.blockers)
       assert.are.same({}, session.retrospective.what_went_well)
+    end)
+
+    it("should save and load tasks with custom H2 fields", function()
+      local info = models.ProjectInfo.new("proj-1", "CustomFieldsTest")
+
+      local task = models.Task.new(
+        "1",
+        "Task with custom fields",
+        "",
+        nil,
+        {},
+        ""
+      )
+
+      task.custom = {
+        priority = "High priority",
+        blockers = "Waiting for API approval",
+        next_actions = "- Review PR\n- Update documentation"
+      }
+
+      local project = models.Project.new(info, {}, {["1"] = task}, {})
+
+      -- Save
+      local success, err = file_storage.save(project, test_dir)
+      assert.is_true(success, err)
+
+      -- Load
+      local loaded, load_err = file_storage.load("CustomFieldsTest", test_dir)
+      assert.is_not_nil(loaded, load_err)
+
+      local loaded_task = loaded.task_list["1"]
+      assert.is_not_nil(loaded_task.custom)
+      assert.are.equal("High priority", loaded_task.custom.priority)
+      assert.are.equal("Waiting for API approval", loaded_task.custom.blockers)
+      assert.is_true(string.match(loaded_task.custom.next_actions, "Review PR") ~= nil)
+      assert.is_true(string.match(loaded_task.custom.next_actions, "Update documentation") ~= nil)
+    end)
+
+    it("should save and load tasks with custom H3 fields in Details", function()
+      local info = models.ProjectInfo.new("proj-1", "CustomDetailsTest")
+
+      local job_details = models.JobDetails.new({
+        context_why = "Standard field",
+        approach = "Standard approach"
+      })
+
+      job_details.custom = {
+        references = "https://example.com/doc",
+        related_issues = "Issue #123, Issue #456"
+      }
+
+      local task = models.Task.new("1", "Task", job_details, nil, {}, "")
+
+      local project = models.Project.new(info, {}, {["1"] = task}, {})
+
+      -- Save
+      local success, err = file_storage.save(project, test_dir)
+      assert.is_true(success, err)
+
+      -- Load
+      local loaded, load_err = file_storage.load("CustomDetailsTest", test_dir)
+      assert.is_not_nil(loaded, load_err)
+
+      local loaded_task = loaded.task_list["1"]
+      assert.are.equal("Standard field", loaded_task.details.context_why)
+      assert.are.equal("Standard approach", loaded_task.details.approach)
+
+      assert.is_not_nil(loaded_task.details.custom)
+      assert.are.equal("https://example.com/doc", loaded_task.details.custom.references)
+      assert.are.equal("Issue #123, Issue #456", loaded_task.details.custom.related_issues)
+    end)
+
+    it("should load old JSON files without custom fields", function()
+      local old_json = [[{
+  "project_info": {"id": "proj-1", "name": "OldCustomTest"},
+  "structure": {"1": {"type": "Job"}},
+  "task_list": {
+    "1": {
+      "name": "Old Task",
+      "details": {
+        "context_why": "Old context",
+        "outcome_dod": ["Done"]
+      },
+      "tags": []
+    }
+  },
+  "time_log": [],
+  "tags": []
+}]]
+
+      local file = io.open(test_dir .. "/OldCustomTest.json", "w")
+      file:write(old_json)
+      file:close()
+
+      -- Load old file
+      local loaded, err = file_storage.load("OldCustomTest", test_dir)
+      assert.is_not_nil(loaded, err)
+      assert.is_nil(err)
+
+      local task = loaded.task_list["1"]
+      assert.are.equal("Old Task", task.name)
+      assert.are.equal("Old context", task.details.context_why)
+
+      -- custom field should exist but be empty for backward compatibility
+      assert.is_not_nil(task.custom)
+      assert.is_true(next(task.custom) == nil)
+
+      -- details.custom should also exist but be empty
+      assert.is_not_nil(task.details.custom)
+      assert.is_true(next(task.details.custom) == nil)
     end)
   end)
   

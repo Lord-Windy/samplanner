@@ -23,6 +23,19 @@ _G.vim = {
       if v == val then return true end
     end
     return false
+  end,
+  inspect = function(obj)
+    if type(obj) == "table" then
+      local parts = {}
+      for k, v in pairs(obj) do
+        table.insert(parts, tostring(k) .. "=" .. tostring(v))
+      end
+      return "{" .. table.concat(parts, ", ") .. "}"
+    elseif type(obj) == "string" then
+      return obj
+    else
+      return tostring(obj)
+    end
   end
 }
 

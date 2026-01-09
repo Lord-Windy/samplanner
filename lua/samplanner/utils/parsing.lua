@@ -288,4 +288,36 @@ function M.parse_gfm_checkbox_value(line, options)
   return nil
 end
 
+-- ============================================================================
+-- Custom Field Header Normalization
+-- ============================================================================
+
+-- Normalize header text to a valid Lua table key
+-- @param header: string - Header text (e.g., "My Section")
+-- @return string - Normalized key (e.g., "my_section")
+function M.normalize_header_to_key(header)
+  if not header or header == "" then
+    return ""
+  end
+  return header
+    :lower()
+    :gsub("[^%w%s]", "")
+    :gsub("%s+", "_")
+    :gsub("^_+", "")
+    :gsub("_+$", "")
+end
+
+-- Convert a normalized key back to a readable header
+-- @param key: string - Normalized key (e.g., "my_section")
+-- @return string - Header text (e.g., "My Section")
+function M.key_to_header(key)
+  if not key or key == "" then
+    return ""
+  end
+  return key
+    :gsub("_", " ")
+    :gsub("^%l", string.upper)
+    :gsub("%s%l", string.upper)
+end
+
 return M
