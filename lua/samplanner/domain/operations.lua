@@ -596,7 +596,7 @@ function M.update_task(project, id, updates)
     return nil, "Task not found: " .. id
   end
 
-  table_utils.apply_updates(task, updates, {"name", "details", "estimation", "notes", "tags"})
+  table_utils.apply_updates(task, updates, {"name", "details", "estimation", "notes", "tags", "custom"})
 
   -- Add any new tags to project
   if updates.tags ~= nil then

@@ -151,13 +151,14 @@ function M.save_task_buffer(buf)
   local text = table.concat(lines, "\n")
   local parsed = task_format.text_to_task(text, meta.node_type)
 
-  -- Update the task
+  -- Update task
   local _, err = operations.update_task(meta.project, meta.task_id, {
     name = parsed.name,
     details = parsed.details,
     estimation = parsed.estimation,
     notes = parsed.notes,
     tags = parsed.tags,
+    custom = parsed.custom,
   })
 
   if err then
