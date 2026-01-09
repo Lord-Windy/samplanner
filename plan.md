@@ -1,192 +1,218 @@
-# Samplanner Implementation Plan
+# Plan: Migrate Content Format to Markdown
 
-## Current State
+## Overview
 
-The project has a solid foundation with:
-- **init.lua**: Plugin setup with basic configuration
-- **domain/models.lua**: Core data models (ProjectInfo, Task, StructureNode, TimeLog, Project)
-- **ports/storage.lua**: Abstract storage interface
-- **ports/file_storage.lua**: File-based JSON storage implementation
+Convert Samplanner's bespoke text format to standard Markdown, using:
+- **H1 (`#`)** for task identification
+- **H2 (`##`)** for section headers
 
-## Phase 1: Core Domain Functions
+This will improve compatibility with external tools, syntax highlighting, and readability.
 
-### 1.1 Project Management
-- [x] `create_project(id, name)` - Create a new project and save to storage
-- [x] `load_project(name)` - Load existing project from storage
-- [x] `delete_project(name)` - Remove project from storage
+---
 
-### 1.2 Tree Structure Operations
-- [x] `add_node(project, parent_id, node_type, name)` - Add node at any position in tree
-- [x] `remove_node(project, node_id)` - Remove node and its children
-- [x] `move_node(project, node_id, new_parent_id)` - Relocate node in tree
-- [x] `renumber_structure(project)` - Re-number all nodes for consistent ordering
-- [x] `get_tree_display(project)` - Render tree as formatted string for display
+## Current Format
 
-### 1.3 Task Management
-- [x] `create_task(project, id, name, details, estimation, tags)` - Create detailed task
-- [x] `update_task(project, id, updates)` - Modify existing task
-- [x] `delete_task(project, id)` - Remove task from task_list
-- [x] `link_task_to_node(project, task_id, node_id)` - Associate task with structure node
-
-### 1.4 Time Log Operations
-- [x] `start_session(project)` - Create new TimeLog with start_timestamp
-- [x] `stop_session(project, session_index)` - Set end_timestamp on active session
-- [x] `update_session(project, session_index, updates)` - Modify session notes/interruptions
-- [x] `add_task_to_session(project, session_index, task_id)` - Link task to session
-- [x] `get_active_session(project)` - Find session without end_timestamp
-
-### 1.5 Tag Operations
-- [x] `add_tag(project, tag)` - Add tag to project's tag list
-- [x] `remove_tag(project, tag)` - Remove tag from project
-- [x] `tag_task(project, task_id, tag)` - Add tag to specific task
-- [x] `untag_task(project, task_id, tag)` - Remove tag from task
-- [x] `search_by_tag(project, tag)` - Find all tasks with given tag
-- [x] `search_by_tags(project, tags, match_all)` - Find tasks matching multiple tags
-
-## Phase 2: Text Format Conversion
-
-### 2.1 Session Format
-Human-readable format for time logs:
 ```
-── Session ──────────────────────────
-Start: 2024-01-15 09:00
-End:   2024-01-15 10:30
-
-── Notes ────────────────────────────
-(notes here)
-
-── Interruptions (minutes: 15) ──────
-(interruptions here)
-
-── Tasks ────────────────────────────
-- task_001
-- task_002
-```
-
-- [x] `session_to_text(time_log)` - Convert TimeLog to editable text format
-- [x] `text_to_session(text)` - Parse text back to TimeLog (simple regex parsing)
-
-### 2.2 Task Format
-Human-readable format for tasks:
-```
-── Task: task_001 ───────────────────
-Name: Implement feature X
+── Task: 1.1.1 ───────────────────
+Task Name Here
 
 ── Details ──────────────────────────
-(description here)
+Purpose / What It Is
+[content]
+
+Goals / Objectives
+  - Item 1
+  - Item 2
 
 ── Estimation ───────────────────────
-(estimation here)
+Type
+  [x] New work   [ ] Change   [ ] Bugfix
 
-── Tags ─────────────────────────────
-tag1, tag2, tag3
+── Notes ────────────────────────────
+[freeform content]
 ```
 
-- [x] `task_to_text(task)` - Convert Task to editable text format
-- [x] `text_to_task(text)` - Parse text back to Task
+---
 
-### 2.3 Structure Format
-Tree display format:
+## Target Markdown Format
+
+```markdown
+# Task: 1.1.1 - Task Name Here
+
+## Details
+
+### Purpose / What It Is
+[content]
+
+### Goals / Objectives
+- Item 1
+- Item 2
+
+## Estimation
+
+### Type
+- [x] New work
+- [ ] Change
+- [ ] Bugfix
+
+## Notes
+[freeform content]
 ```
-1 Area: Authentication
-  1.1 Component: Login Flow
-    1.1.1 Job: Create login form
-    1.1.2 Job: Add validation
-  1.2 Component: Session Management
-2 Area: Dashboard
+
+---
+
+## Files to Modify
+
+### 1. `lua/samplanner/formats/task.lua`
+Main converter for task content display and parsing.
+
+**Changes:**
+- `task_to_text()`: Replace `format_section()` calls with Markdown headers
+- `text_to_task()`: Update parsing to recognize `#`, `##`, `###` headers
+- Update all task type handlers (Area, Component, Job)
+
+### 2. `lua/samplanner/utils/parsing.lua`
+Utility functions for text processing.
+
+**Changes:**
+- `format_section()`: Change to emit `## Section Name` instead of `── Section ──`
+- Add new `format_subsection()` for H3 headers (`###`)
+- Update section detection patterns from `^──` to `^##`
+- Keep checkbox utilities (`[x]`/`[ ]`) - these are GFM compatible
+
+### 3. `lua/samplanner/formats/session.lua`
+Session/time log formatting.
+
+**Changes:**
+- Convert session headers to H2 format
+- Update parsing to match new header patterns
+
+### 4. `lua/samplanner/formats/structure.lua` (minimal changes)
+Tree structure rendering - mostly independent of content format.
+
+**Changes:**
+- Review if any section formatting is used here (likely none)
+
+---
+
+## Detailed Changes
+
+### Phase 1: Update Parsing Utilities
+
+**File:** `lua/samplanner/utils/parsing.lua`
+
+1. Modify `format_section(header, content)`:
+   ```lua
+   -- Old: return "── " .. header .. " ──────────────────\n" .. content
+   -- New: return "## " .. header .. "\n" .. content
+   ```
+
+2. Add `format_subsection(header, content)`:
+   ```lua
+   return "### " .. header .. "\n" .. content
+   ```
+
+3. Add `format_title(task_id, name)`:
+   ```lua
+   return "# Task: " .. task_id .. " - " .. name .. "\n"
+   ```
+
+4. Update section detection patterns in any parsing functions
+
+### Phase 2: Update Task Formatter
+
+**File:** `lua/samplanner/formats/task.lua`
+
+1. Update `task_to_text()`:
+   - Start with H1: `# Task: {id} - {name}`
+   - Each major section becomes H2: `## Details`, `## Estimation`, `## Notes`, `## Tags`
+   - Sub-sections within Details become H3: `### Vision / Purpose`, `### Goals / Objectives`
+
+2. Update `text_to_task()`:
+   - Parse H1 for task ID and name
+   - Parse H2 for major sections
+   - Parse H3 for sub-sections within Details
+   - Handle content between headers
+
+3. Update detail formatters for each task type:
+   - `format_area_details()` / `parse_area_details()`
+   - `format_component_details()` / `parse_component_details()`
+   - `format_job_details()` / `parse_job_details()`
+
+### Phase 3: Update Session Formatter
+
+**File:** `lua/samplanner/formats/session.lua`
+
+1. Update `session_to_text()`:
+   - Use H2 for: `## Session`, `## Productivity Metrics`, `## Deliverables`, etc.
+
+2. Update `text_to_session()`:
+   - Match against `^## ` pattern instead of `^── `
+
+### Phase 4: Checkbox Format Decision
+
+**Option A: Keep inline checkboxes (current)**
+```
+- [x] New work   [ ] Change   [ ] Bugfix
 ```
 
-- [x] `structure_to_text(structure)` - Render tree as indented text
-- [x] `text_to_structure(text)` - Parse indented text back to structure
+**Option B: Convert to GFM task list format**
+```
+- [x] New work
+- [ ] Change
+- [ ] Bugfix
+```
 
-## Phase 3: Neovim UI Layer
+Recommendation: **Option B** - More standard Markdown, better rendering in external viewers.
 
-### 4.1 Buffer Management
-- [x] Create `ui/buffers.lua` - Buffer creation and management
-- [x] `create_session_buffer(project, session_index)` - Open session in editable buffer
-- [x] `create_task_buffer(project, task_id)` - Open task in editable buffer
-- [x] `create_structure_buffer(project)` - Open tree view buffer
-- [x] Auto-save on `:w` using BufWriteCmd autocmd
-- [x] Auto-parse buffer content back to model on save
+---
 
-### 4.2 Tree View
-- [x] Create `ui/tree.lua` - Tree view rendering and interaction
-- [x] Display collapsible tree structure
-- [x] Keybindings for tree manipulation:
-  - `a` - Add child node
-  - `A` - Add sibling node
-  - `d` - Delete node
-  - `r` - Rename node
-  - `<CR>` - Open task details
-  - `zo/zc` - Expand/collapse
+## Migration Considerations
 
-### 4.3 Tag Interface
-- [x] Create `ui/tags.lua` - Tag management UI
-- [x] `open_tag_picker(callback)` - Fuzzy picker for existing tags
-- [x] `add_tag_prompt(task_id)` - Prompt to add new or existing tag
-- [x] `show_tag_search()` - Filter tasks by selected tags
+### Backwards Compatibility
+- Existing saved projects use JSON storage (not the text format)
+- Text format is transient (only in buffers)
+- No migration needed for stored data
 
-### 4.4 Session Timer
-- [x] Create `ui/timer.lua` - Time tracking UI
-- [x] `:SamplannerStart` - Start new session
-- [x] `:SamplannerStop` - Stop current session
-- [x] `:SamplannerSession` - Open current session buffer
-- [x] Status line integration showing elapsed time
+### Syntax Highlighting
+- Set buffer filetype to `markdown` for proper highlighting
+- Current: Custom filetype `samplanner`
+- May need to update `ui/buffers.lua` to set `filetype = "markdown"`
 
-## Phase 5: Plugin Commands
+### Testing
+- Verify round-trip: JSON -> Markdown -> edit -> parse -> JSON
+- Test all three task types: Area, Component, Job
+- Test session format
+- Verify no data loss in complex nested content
 
-### 5.1 Core Commands
-- [x] `:Samplanner` - Open project picker or current project
-- [x] `:SamplannerNew <name>` - Create new project
-- [x] `:SamplannerLoad <name>` - Load existing project
-- [x] `:SamplannerTree` - Open tree structure view
-- [x] `:SamplannerTask <id>` - Open task by ID
-- [x] `:SamplannerTags` - Open tag management
+---
 
-### 5.2 Session Commands
-- [x] `:SamplannerStart` - Start time tracking session
-- [x] `:SamplannerStop` - Stop current session
-- [x] `:SamplannerSession [index]` - Open session buffer
-- [x] `:SamplannerSessions` - List all sessions
+## Open Questions
 
-### 5.3 Search Commands
-- [x] `:SamplannerSearch <query>` - Search tasks by text
-- [x] `:SamplannerByTag <tag>` - Filter tasks by tag
+1. **H3 for sub-sections?** Should we use H3 (`###`) for sub-sections within Details, or keep them as bold text / other formatting?
+
+Yes H3 for sub sections is awesome
+
+2. **Checkbox layout?** Keep inline (compact) or switch to vertical list (more standard)?
+
+Option B style
+
+3. **Code blocks?** Should freeform text areas use code blocks or remain plain?
+
+Free form text should remain free form because a big reason to move to
+this is so I CAN use code blocks
+
+4. **Frontmatter?** Consider YAML frontmatter for metadata instead of H1 for task info?
+
+No - stick with H1 for simplicity
+
+---
 
 ## Implementation Order
 
-1. **Phase 1.1-1.3** - Core project, tree, and task operations
-2. **Phase 2.1-2.3** - Text format converters (enables manual editing)
-3. **Phase 4.1** - Basic buffer management
-4. **Phase 1.4-1.5** - Time logs and tags
-5. **Phase 4.2** - Tree view UI
-6. **Phase 4.3-4.4** - Tag and timer UI
-7. **Phase 4** - Plugin commands
-
-## File Structure Target
-
-```
-lua/samplanner/
-├── init.lua                 # Plugin entry, setup, commands
-├── domain/
-│   ├── models.lua           # Data models (exists)
-│   └── operations.lua       # Core business logic
-├── ports/
-│   ├── storage.lua          # Storage interface (exists)
-│   └── file_storage.lua     # File implementation (exists)
-├── formats/
-│   ├── session.lua          # Session text format
-│   ├── task.lua             # Task text format
-│   └── structure.lua        # Tree text format
-└── ui/
-    ├── buffers.lua          # Buffer management
-    ├── tree.lua             # Tree view
-    ├── tags.lua             # Tag picker/search
-    └── timer.lua            # Session timer
-```
-
-## Notes
-
-- All operations should save automatically after modification
-- Consider telescope.nvim integration for fuzzy finding
-- Tree view could use nvim-tree style folding
+1. Update `parsing.lua` utilities first (foundation)
+2. Update `task.lua` (largest change)
+3. Update `session.lua`
+4. Update buffer filetype in `buffers.lua`
+5. Test all task types and session format
+6. Address any edge cases discovered during testing
