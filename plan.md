@@ -24,6 +24,12 @@ This means the parser only recognizes `##` and `###` as structural markers. Anyt
 
 ## Proposed Design
 
+**Important:** This feature requires implementation in TWO critical paths:
+1. **Markdown ↔ Task object** (parsing and formatting in `formats/task.lua`)
+2. **Task object ↔ JSON** (serialization and deserialization in `ports/file_storage.lua` and `domain/models.lua`)
+
+Both paths must handle custom fields correctly for the feature to work end-to-end.
+
 ### 1. Add a dynamic `custom` table to Task model
 
 In `domain/models.lua`, extend the Task structure:
@@ -100,12 +106,19 @@ if task.custom and next(task.custom) then
 end
 ```
 
-### 5. Persist custom fields to JSON
+### 5. Persist custom fields to JSON (Save AND Load)
 
-Update `ports/file_storage.lua` serialization:
+Update `ports/file_storage.lua` for both serialization paths:
 
+**Save path:**
 - `project_to_table()` should include `task.custom` when present
-- `models.Project.from_table()` should reconstruct `custom` from stored JSON
+- `project_to_table()` should include `details.custom` for nested custom fields within Details sections
+
+**Load path:**
+- `models.Project.from_table()` should reconstruct `task.custom` from stored JSON
+- `models.Task.from_table()` should properly restore `task.custom` as a table (not convert to string)
+- `models.{Job|Component|Area}Details.from_table()` should restore `details.custom` for nested custom H3 fields
+- Handle missing `custom` field gracefully (for old files without custom fields)
 
 ## Implementation Steps
 
@@ -124,11 +137,21 @@ Update `ports/file_storage.lua` serialization:
 4. **Update formatter** in `formats/task.lua`
    - Modify `task_to_text()` to render custom sections
 
-5. **Update serialization** in `ports/file_storage.lua`
-   - Ensure `custom` is included in JSON output
-   - Handle loading projects with custom fields
+5. **Update serialization (save path)** in `ports/file_storage.lua`
+   - Ensure `task.custom` is included in JSON output in `project_to_table()`
+   - Ensure `details.custom` is included for nested H3 custom fields
 
-6. **Add tests** for the new functionality
+6. **Update deserialization (load path)** in `ports/file_storage.lua` and `domain/models.lua`
+   - Update `Task.from_table()` to restore `task.custom` from JSON
+   - Update `{Job|Component|Area}Details.from_table()` to restore `details.custom`
+   - Handle backward compatibility (files without custom fields)
+
+7. **Add tests** for the new functionality
+   - Tests in `tests/unit/custom_headers_spec.lua` already cover parsing and round-trip markdown
+   - **NEW: Add integration test** in `tests/integration/file_storage_spec.lua` for complete JSON save/load cycle:
+     - Test saving task with top-level custom H2 fields, then loading and verifying
+     - Test saving task with nested custom H3 fields in Details, then loading and verifying
+     - Test loading old JSON files without custom fields (backward compatibility)
 
 ## Alternative: Fully Dynamic Details
 
@@ -144,9 +167,11 @@ details = { purpose = "...", extra_field = "..." }
 
 Option A is recommended because it preserves the structured fields for known sections while allowing extensions.
 
-## Open Questions
+## Design Decisions (Resolved)
 
-- Should unknown H3 headers within `## Details` become custom fields on the details object, or top-level custom fields?
-- Should custom fields have any validation or constraints?
-- Should the UI provide a way to "promote" a custom field to a known field?
-- When an H1 is moved to notes, should it be stripped of the `#` prefix or preserved as-is?
+| Question | Decision |
+|----------|----------|
+| Where do unknown H3 headers go? | Within the parent H2's `custom` table (e.g., `details.custom.my_field`) |
+| Validation/constraints on custom fields? | None - just save and load |
+| UI to promote custom → known field? | Not needed for now |
+| H1 content moved to notes - strip `#`? | Yes, strip the `#` prefix |
