@@ -1,8 +1,44 @@
 -- Core domain operations for Samplanner
 local models = require('samplanner.domain.models')
 local file_storage = require('samplanner.ports.file_storage')
+local table_utils = require('samplanner.utils.table')
 
 local M = {}
+
+-- Local alias for sorted_keys
+local sorted_keys = table_utils.sorted_keys
+
+-- Helper to update IDs recursively for a node and its children
+-- @param node: StructureNode - The node to update
+-- @param old_id: string - The old ID
+-- @param new_id: string - The new ID
+-- @param task_list: table - The project's task_list to update
+-- @param temp_tasks: table|nil - Optional temp storage for tasks (used during swap)
+local function update_ids_recursive(node, old_id, new_id, task_list, temp_tasks)
+  -- Update associated task ID
+  local task_source = temp_tasks or task_list
+  if task_source[old_id] then
+    local task = task_source[old_id]
+    task.id = new_id
+    task_list[new_id] = task
+    if not temp_tasks then
+      task_list[old_id] = nil
+    end
+  end
+
+  -- Update children
+  if node.subtasks then
+    local new_subtasks = {}
+    for child_id, child_node in pairs(node.subtasks) do
+      local suffix = child_id:sub(#old_id + 2)  -- +2 to skip the dot
+      local new_child_id = new_id .. "." .. suffix
+      child_node.id = new_child_id
+      new_subtasks[new_child_id] = child_node
+      update_ids_recursive(child_node, child_id, new_child_id, task_list, temp_tasks)
+    end
+    node.subtasks = new_subtasks
+  end
+end
 
 -- Default storage directory (can be overridden via config)
 local function get_storage_dir()
@@ -233,37 +269,12 @@ function M.move_node(project, node_id, new_parent_id)
     new_id = new_parent_id .. "." .. next_num
   end
 
-  -- Helper to update IDs recursively
-  local function update_ids(n, old_id, updated_id)
-    -- Update associated task ID
-    if project.task_list[old_id] then
-      local task = project.task_list[old_id]
-      task.id = updated_id
-      project.task_list[updated_id] = task
-      project.task_list[old_id] = nil
-    end
-
-    -- Update children
-    if n.subtasks then
-      local new_subtasks = {}
-      for child_id, child_node in pairs(n.subtasks) do
-        -- Calculate new child ID
-        local suffix = child_id:sub(#old_id + 2)  -- +2 to skip the dot
-        local new_child_id = updated_id .. "." .. suffix
-        child_node.id = new_child_id
-        new_subtasks[new_child_id] = child_node
-        update_ids(child_node, child_id, new_child_id)
-      end
-      n.subtasks = new_subtasks
-    end
-  end
-
   -- Remove from old parent
   old_parent_subtasks[node_id] = nil
 
   -- Update node and its children IDs
   node.id = new_id
-  update_ids(node, node_id, new_id)
+  update_ids_recursive(node, node_id, new_id, project.task_list)
 
   -- Add to new parent
   new_parent_subtasks[new_id] = node
@@ -281,21 +292,6 @@ end
 -- @param project: Project - The project to modify
 -- @return boolean, string - success status and error message if failed
 function M.renumber_structure(project)
-  -- Helper to sort keys numerically
-  local function sorted_keys(t)
-    local keys = {}
-    for k in pairs(t) do
-      table.insert(keys, k)
-    end
-    -- Sort by numeric value of last segment
-    table.sort(keys, function(a, b)
-      local a_num = tonumber(a:match("(%d+)$")) or 0
-      local b_num = tonumber(b:match("(%d+)$")) or 0
-      return a_num < b_num
-    end)
-    return keys
-  end
-
   -- Recursive function to renumber a level
   local function renumber_level(subtasks, prefix)
     local keys = sorted_keys(subtasks)
@@ -347,20 +343,6 @@ function M.swap_siblings(project, node_id, direction)
   local node, parent_subtasks, parent_id = find_node(project.structure, node_id)
   if not node then
     return false, "Node not found: " .. node_id
-  end
-
-  -- Get sorted list of siblings
-  local function sorted_keys(t)
-    local keys = {}
-    for k in pairs(t) do
-      table.insert(keys, k)
-    end
-    table.sort(keys, function(a, b)
-      local a_num = tonumber(a:match("(%d+)$")) or 0
-      local b_num = tonumber(b:match("(%d+)$")) or 0
-      return a_num < b_num
-    end)
-    return keys
   end
 
   local siblings = sorted_keys(parent_subtasks)
@@ -440,33 +422,12 @@ function M.swap_siblings(project, node_id, direction)
     parent_subtasks[id] = nil
   end
 
-  -- Helper to update IDs recursively and restore tasks
-  local function update_ids(n, old_id, new_id)
-    if temp_tasks[old_id] then
-      local task = temp_tasks[old_id]
-      task.id = new_id
-      project.task_list[new_id] = task
-    end
-
-    if n.subtasks then
-      local new_subtasks = {}
-      for child_id, child_node in pairs(n.subtasks) do
-        local suffix = child_id:sub(#old_id + 2)
-        local new_child_id = new_id .. "." .. suffix
-        child_node.id = new_child_id
-        new_subtasks[new_child_id] = child_node
-        update_ids(child_node, child_id, new_child_id)
-      end
-      n.subtasks = new_subtasks
-    end
-  end
-
   -- Reassign with new numbering
   for i, item in ipairs(temp_nodes) do
     local new_id = prefix .. i
     local node = item.node
     node.id = new_id
-    update_ids(node, item.id, new_id)
+    update_ids_recursive(node, item.id, new_id, project.task_list, temp_tasks)
     parent_subtasks[new_id] = node
   end
 
@@ -487,20 +448,6 @@ function M.indent_node(project, node_id)
   local node, parent_subtasks, parent_id = find_node(project.structure, node_id)
   if not node then
     return false, "Node not found: " .. node_id
-  end
-
-  -- Get sorted list of siblings to find previous sibling
-  local function sorted_keys(t)
-    local keys = {}
-    for k in pairs(t) do
-      table.insert(keys, k)
-    end
-    table.sort(keys, function(a, b)
-      local a_num = tonumber(a:match("(%d+)$")) or 0
-      local b_num = tonumber(b:match("(%d+)$")) or 0
-      return a_num < b_num
-    end)
-    return keys
   end
 
   local siblings = sorted_keys(parent_subtasks)
@@ -576,34 +523,6 @@ end
 function M.get_tree_display(project)
   local lines = {}
 
-  -- Sort keys for consistent display
-  local function sorted_keys(t)
-    local keys = {}
-    for k in pairs(t) do
-      table.insert(keys, k)
-    end
-    table.sort(keys, function(a, b)
-      -- Sort by comparing numeric segments
-      local a_parts = {}
-      for part in a:gmatch("(%d+)") do
-        table.insert(a_parts, tonumber(part))
-      end
-      local b_parts = {}
-      for part in b:gmatch("(%d+)") do
-        table.insert(b_parts, tonumber(part))
-      end
-      for i = 1, math.max(#a_parts, #b_parts) do
-        local a_val = a_parts[i] or 0
-        local b_val = b_parts[i] or 0
-        if a_val ~= b_val then
-          return a_val < b_val
-        end
-      end
-      return false
-    end)
-    return keys
-  end
-
   -- Recursive function to build display
   local function display_level(subtasks, depth)
     local keys = sorted_keys(subtasks)
@@ -677,21 +596,10 @@ function M.update_task(project, id, updates)
     return nil, "Task not found: " .. id
   end
 
-  if updates.name ~= nil then
-    task.name = updates.name
-  end
-  if updates.details ~= nil then
-    task.details = updates.details
-  end
-  if updates.estimation ~= nil then
-    task.estimation = updates.estimation
-  end
-  if updates.notes ~= nil then
-    task.notes = updates.notes
-  end
+  table_utils.apply_updates(task, updates, {"name", "details", "estimation", "notes", "tags"})
+
+  -- Add any new tags to project
   if updates.tags ~= nil then
-    task.tags = updates.tags
-    -- Add any new tags to project
     for _, tag in ipairs(updates.tags) do
       if not vim.tbl_contains(project.tags, tag) then
         table.insert(project.tags, tag)
@@ -835,42 +743,11 @@ function M.update_session(project, session_index, updates)
     return nil, "Session not found: " .. session_index
   end
 
-  if updates.notes ~= nil then
-    session.notes = updates.notes
-  end
-  if updates.interruptions ~= nil then
-    session.interruptions = updates.interruptions
-  end
-  if updates.interruption_minutes ~= nil then
-    session.interruption_minutes = updates.interruption_minutes
-  end
-  if updates.session_type ~= nil then
-    session.session_type = updates.session_type
-  end
-  if updates.planned_duration_minutes ~= nil then
-    session.planned_duration_minutes = updates.planned_duration_minutes
-  end
-  if updates.focus_rating ~= nil then
-    session.focus_rating = updates.focus_rating
-  end
-  if updates.energy_level ~= nil then
-    session.energy_level = updates.energy_level
-  end
-  if updates.context_switches ~= nil then
-    session.context_switches = updates.context_switches
-  end
-  if updates.defects ~= nil then
-    session.defects = updates.defects
-  end
-  if updates.deliverables ~= nil then
-    session.deliverables = updates.deliverables
-  end
-  if updates.blockers ~= nil then
-    session.blockers = updates.blockers
-  end
-  if updates.retrospective ~= nil then
-    session.retrospective = updates.retrospective
-  end
+  table_utils.apply_updates(session, updates, {
+    "notes", "interruptions", "interruption_minutes", "session_type",
+    "planned_duration_minutes", "focus_rating", "energy_level", "context_switches",
+    "defects", "deliverables", "blockers", "retrospective"
+  })
 
   -- Save the project
   local success, err = M.save_project(project)

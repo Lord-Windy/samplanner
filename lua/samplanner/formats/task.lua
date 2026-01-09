@@ -1,57 +1,19 @@
 -- Task text format conversion
 local models = require('samplanner.domain.models')
+local parsing = require('samplanner.utils.parsing')
 
 local M = {}
 
--- Helper to format a checkbox based on value
-local function checkbox(is_checked)
-  return is_checked and "[x]" or "[ ]"
-end
-
--- Helper to get checkbox value from line
-local function get_checked_value(line, options)
-  for _, opt in ipairs(options) do
-    if line:match("%[x%]%s+" .. opt.pattern) or line:match("%[X%]%s+" .. opt.pattern) then
-      return opt.value
-    end
-  end
-  return ""
-end
-
--- Helper to normalize consecutive empty lines (collapse multiple empty lines into at most one)
-local function normalize_empty_lines(lines)
-  local result = {}
-  local prev_empty = false
-
-  for _, line in ipairs(lines) do
-    local is_empty = (line == "")
-    -- Only add this line if it's not empty, or if the previous line wasn't empty
-    if not (is_empty and prev_empty) then
-      table.insert(result, line)
-    end
-    prev_empty = is_empty
-  end
-
-  return result
-end
-
--- Helper to split string by newlines, preserving empty lines
-local function split_lines(str)
-  local lines = {}
-  local pos = 1
-  while true do
-    local nl = str:find("\n", pos, true)
-    if nl then
-      table.insert(lines, str:sub(pos, nl - 1))
-      pos = nl + 1
-    else
-      -- Capture the last segment (or the whole string if no newlines)
-      table.insert(lines, str:sub(pos))
-      break
-    end
-  end
-  return lines
-end
+-- Local aliases for parsing utilities
+local checkbox = parsing.checkbox
+local get_checked_value = parsing.get_checked_value
+local split_lines = parsing.split_lines
+local normalize_empty_lines = parsing.normalize_empty_lines
+local finalize_section = parsing.finalize_section
+local capture_indented_line = parsing.capture_indented_line
+local capture_freeform_line = parsing.capture_freeform_line
+local format_section = parsing.format_section
+local format_plain_section = parsing.format_plain_section
 
 -- Convert Estimation to text format
 local function estimation_to_text(estimation)
@@ -358,36 +320,18 @@ local function job_details_to_text(job_details)
   local lines = {}
   local jd = job_details or models.JobDetails.new()
 
-  -- Context / Why section
-  table.insert(lines, "Context / Why")
-  if jd.context_why and jd.context_why ~= "" then
-    table.insert(lines, jd.context_why)
-  else
-    table.insert(lines, "")
-  end
-  table.insert(lines, "")
+  format_plain_section(lines, "Context / Why", jd.context_why)
 
   -- Completion status
   table.insert(lines, string.format("%s Completed", checkbox(jd.completed)))
   table.insert(lines, "")
 
-  -- Outcome / Definition of Done section
-  table.insert(lines, "Outcome / Definition of Done")
-  if jd.outcome_dod and jd.outcome_dod ~= "" then
-    -- Output text as-is, just add indentation (preserving empty lines)
-    for _, line in ipairs(split_lines(jd.outcome_dod)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
+  format_section(lines, "Outcome / Definition of Done", jd.outcome_dod)
 
-  -- Scope section
+  -- Scope section (special formatting with subsections)
   table.insert(lines, "Scope")
   table.insert(lines, "  In scope:")
   if jd.scope_in and jd.scope_in ~= "" then
-    -- Output text as-is with 4-space indentation (preserving empty lines)
     for _, line in ipairs(split_lines(jd.scope_in)) do
       table.insert(lines, "    " .. line)
     end
@@ -396,7 +340,6 @@ local function job_details_to_text(job_details)
   end
   table.insert(lines, "  Out of scope:")
   if jd.scope_out and jd.scope_out ~= "" then
-    -- Output text as-is with 4-space indentation (preserving empty lines)
     for _, line in ipairs(split_lines(jd.scope_out)) do
       table.insert(lines, "    " .. line)
     end
@@ -405,58 +348,14 @@ local function job_details_to_text(job_details)
   end
   table.insert(lines, "")
 
-  -- Requirements / Constraints section
-  table.insert(lines, "Requirements / Constraints")
-  if jd.requirements_constraints and jd.requirements_constraints ~= "" then
-    -- Output text as-is, just add indentation (preserving empty lines)
-    for _, line in ipairs(split_lines(jd.requirements_constraints)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
+  format_section(lines, "Requirements / Constraints", jd.requirements_constraints)
+  format_section(lines, "Dependencies", jd.dependencies)
+  format_section(lines, "Approach (brief plan)", jd.approach)
+  format_section(lines, "Risks", jd.risks)
 
-  -- Dependencies section
-  table.insert(lines, "Dependencies")
-  if jd.dependencies and jd.dependencies ~= "" then
-    -- Output text as-is, just add indentation (preserving empty lines)
-    for _, line in ipairs(split_lines(jd.dependencies)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Approach section
-  table.insert(lines, "Approach (brief plan)")
-  if jd.approach and jd.approach ~= "" then
-    -- Output text as-is, just add indentation (preserving empty lines)
-    for _, line in ipairs(split_lines(jd.approach)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Risks section
-  table.insert(lines, "Risks")
-  if jd.risks and jd.risks ~= "" then
-    -- Output text as-is, just add indentation (preserving empty lines)
-    for _, line in ipairs(split_lines(jd.risks)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Validation / Test Plan section
+  -- Last section without trailing newline
   table.insert(lines, "Validation / Test Plan")
   if jd.validation_test_plan and jd.validation_test_plan ~= "" then
-    -- Output text as-is, just add indentation (preserving empty lines)
     for _, line in ipairs(split_lines(jd.validation_test_plan)) do
       table.insert(lines, "  " .. line)
     end
@@ -484,344 +383,101 @@ local function text_to_job_details(text)
 
   local current_section = nil
   local current_subsection = nil
-  local context_lines = {}
-  local section_lines = {}  -- For capturing free-form sections
+  local section_lines = {}
 
-  -- Add newline to ensure last line is captured, then match lines
-  for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
-    -- Check section headers
-    if line:match("^Context / Why$") then
-      current_section = "context"
-      current_subsection = nil
-      context_lines = {}
-    elseif line:match("^%[.%]%s+Completed$") then
-      -- Parse completion checkbox
-      jd.completed = line:match("^%[x%]") or line:match("^%[X%]")
-      if jd.completed then
-        jd.completed = true
-      else
-        jd.completed = false
-      end
-    elseif line:match("^Outcome / Definition of Done$") then
-      -- Save context before switching
-      if current_section == "context" and #context_lines > 0 then
-        -- Normalize consecutive empty lines
-        context_lines = normalize_empty_lines(context_lines)
-        -- Remove trailing empty lines
-        while #context_lines > 0 and context_lines[#context_lines] == "" do
-          table.remove(context_lines)
-        end
-        -- Remove leading empty lines
-        while #context_lines > 0 and context_lines[1] == "" do
-          table.remove(context_lines, 1)
-        end
-        jd.context_why = table.concat(context_lines, "\n")
-      end
-      current_section = "outcome"
-      current_subsection = nil
-      section_lines = {}  -- Reset for new section
-    elseif line:match("^Scope$") then
-      -- Save previous section
-      if current_section == "outcome" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        jd.outcome_dod = table.concat(section_lines, "\n")
-      end
-      current_section = "scope"
-      current_subsection = nil
-      section_lines = {}
-    elseif line:match("^Requirements / Constraints$") then
-      -- Save previous scope subsection
-      if current_section == "scope" and current_subsection == "out" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        jd.scope_out = table.concat(section_lines, "\n")
-      end
-      current_section = "requirements"
-      current_subsection = nil
-      section_lines = {}
-    elseif line:match("^Dependencies$") then
-      -- Save previous section
-      if current_section == "requirements" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        jd.requirements_constraints = table.concat(section_lines, "\n")
-      end
-      current_section = "dependencies"
-      current_subsection = nil
-      section_lines = {}
-    elseif line:match("^Approach") then
-      -- Save previous section
-      if current_section == "dependencies" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        jd.dependencies = table.concat(section_lines, "\n")
-      end
-      current_section = "approach"
-      current_subsection = nil
-      section_lines = {}
-    elseif line:match("^Risks$") then
-      -- Save previous section
-      if current_section == "approach" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        jd.approach = table.concat(section_lines, "\n")
-      end
-      current_section = "risks"
-      current_subsection = nil
-      section_lines = {}
-    elseif line:match("^Validation / Test Plan$") then
-      -- Save previous section
-      if current_section == "risks" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        jd.risks = table.concat(section_lines, "\n")
-      end
-      current_section = "validation"
-      current_subsection = nil
-      section_lines = {}
+  -- Map sections to their field names and indent sizes
+  local section_fields = {
+    context = { field = "context_why", indent = 0 },
+    outcome = { field = "outcome_dod", indent = 2 },
+    requirements = { field = "requirements_constraints", indent = 2 },
+    dependencies = { field = "dependencies", indent = 2 },
+    approach = { field = "approach", indent = 2 },
+    risks = { field = "risks", indent = 2 },
+    validation = { field = "validation_test_plan", indent = 2 },
+  }
 
-    -- Context section content (capture everything until next section)
-    elseif current_section == "context" then
-      -- Only add non-empty lines or preserve internal empty lines
-      if line ~= "" then
-        table.insert(context_lines, line)
-      elseif #context_lines > 0 then
-        -- Mark that we saw an empty line, but don't add it yet
-        -- This prevents trailing empty lines from being added
-        table.insert(context_lines, "")
-      end
+  -- Helper to save current section
+  local function save_section()
+    if not current_section or #section_lines == 0 then return end
 
-    -- Outcome section content - capture ALL lines, preserving content-level indentation
-    elseif current_section == "outcome" then
-      -- Handle empty lines (preserve for paragraph breaks)
-      if line == "" then
-        if #section_lines > 0 then
-          table.insert(section_lines, "")
-        end
-      -- Lines with 2+ spaces: strip exactly 2 spaces (section indent), preserve rest
-      elseif line:match("^  ") then
-        local content = line:sub(3)  -- Remove first 2 spaces only
-        table.insert(section_lines, content)
-      -- Lines with other whitespace: strip all leading whitespace
-      elseif line:match("^%s+") then
-        local content = line:match("^%s+(.*)$")
-        if content and content ~= "" then
-          table.insert(section_lines, content)
-        end
-      -- Lines without leading whitespace: capture as-is (user typed without indent)
-      else
-        table.insert(section_lines, line)
-      end
-
-    -- Scope section content
-    elseif current_section == "scope" and line:match("^%s+In scope:") then
-      current_subsection = "in"
-      section_lines = {}
-    elseif current_section == "scope" and line:match("^%s+Out of scope:") then
-      -- Save previous subsection
-      if current_subsection == "in" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        jd.scope_in = table.concat(section_lines, "\n")
-      end
-      current_subsection = "out"
-      section_lines = {}
-    elseif current_section == "scope" and current_subsection then
-      -- Handle empty lines (preserve for paragraph breaks)
-      if line == "" then
-        if #section_lines > 0 then
-          table.insert(section_lines, "")
-        end
-      -- Lines with 4+ spaces: strip exactly 4 spaces (scope indent), preserve rest
-      elseif line:match("^    ") then
-        local content = line:sub(5)  -- Remove first 4 spaces only
-        table.insert(section_lines, content)
-      -- Lines with other whitespace: strip all leading whitespace
-      elseif line:match("^%s+") then
-        local content = line:match("^%s+(.*)$")
-        if content and content ~= "" then
-          table.insert(section_lines, content)
-        end
-      -- Lines without leading whitespace: capture as-is (user typed without indent)
-      else
-        table.insert(section_lines, line)
-      end
-
-    -- Requirements section content - capture text, preserving content-level indentation
-    elseif current_section == "requirements" then
-      if line == "" then
-        if #section_lines > 0 then
-          table.insert(section_lines, "")
-        end
-      elseif line:match("^  ") then
-        local content = line:sub(3)
-        table.insert(section_lines, content)
-      elseif line:match("^%s+") then
-        local content = line:match("^%s+(.*)$")
-        if content and content ~= "" then
-          table.insert(section_lines, content)
-        end
-      else
-        table.insert(section_lines, line)
-      end
-
-    -- Dependencies section content - capture text, preserving content-level indentation
-    elseif current_section == "dependencies" then
-      if line == "" then
-        if #section_lines > 0 then
-          table.insert(section_lines, "")
-        end
-      elseif line:match("^  ") then
-        local content = line:sub(3)
-        table.insert(section_lines, content)
-      elseif line:match("^%s+") then
-        local content = line:match("^%s+(.*)$")
-        if content and content ~= "" then
-          table.insert(section_lines, content)
-        end
-      else
-        table.insert(section_lines, line)
-      end
-
-    -- Approach section content - capture text, preserving content-level indentation
-    elseif current_section == "approach" then
-      if line == "" then
-        if #section_lines > 0 then
-          table.insert(section_lines, "")
-        end
-      elseif line:match("^  ") then
-        local content = line:sub(3)
-        table.insert(section_lines, content)
-      elseif line:match("^%s+") then
-        local content = line:match("^%s+(.*)$")
-        if content and content ~= "" then
-          table.insert(section_lines, content)
-        end
-      else
-        table.insert(section_lines, line)
-      end
-
-    -- Risks section content - capture text, preserving content-level indentation
-    elseif current_section == "risks" then
-      if line == "" then
-        if #section_lines > 0 then
-          table.insert(section_lines, "")
-        end
-      elseif line:match("^  ") then
-        local content = line:sub(3)
-        table.insert(section_lines, content)
-      elseif line:match("^%s+") then
-        local content = line:match("^%s+(.*)$")
-        if content and content ~= "" then
-          table.insert(section_lines, content)
-        end
-      else
-        table.insert(section_lines, line)
-      end
-
-    -- Validation section content - capture text, preserving content-level indentation
-    elseif current_section == "validation" then
-      if line == "" then
-        if #section_lines > 0 then
-          table.insert(section_lines, "")
-        end
-      elseif line:match("^  ") then
-        local content = line:sub(3)
-        table.insert(section_lines, content)
-      elseif line:match("^%s+") then
-        local content = line:match("^%s+(.*)$")
-        if content and content ~= "" then
-          table.insert(section_lines, content)
-        end
-      else
-        table.insert(section_lines, line)
-      end
-    end
-  end
-
-  -- Save final section if any
-  if #section_lines > 0 then
-    section_lines = normalize_empty_lines(section_lines)
-    while #section_lines > 0 and section_lines[#section_lines] == "" do
-      table.remove(section_lines)
-    end
-    while #section_lines > 0 and section_lines[1] == "" do
-      table.remove(section_lines, 1)
-    end
-    local content = table.concat(section_lines, "\n")
-
-    if current_section == "outcome" then
-      jd.outcome_dod = content
-    elseif current_section == "scope" then
-      -- Handle scope subsections
+    local content = finalize_section(section_lines)
+    if current_section == "scope" then
       if current_subsection == "in" then
         jd.scope_in = content
       elseif current_subsection == "out" then
         jd.scope_out = content
       end
-    elseif current_section == "requirements" then
-      jd.requirements_constraints = content
-    elseif current_section == "dependencies" then
-      jd.dependencies = content
-    elseif current_section == "approach" then
-      jd.approach = content
-    elseif current_section == "risks" then
-      jd.risks = content
-    elseif current_section == "validation" then
-      jd.validation_test_plan = content
+    elseif section_fields[current_section] then
+      jd[section_fields[current_section].field] = content
     end
   end
 
-  -- Handle final context section
-  if current_section == "context" and #context_lines > 0 then
-    -- Normalize consecutive empty lines
-    context_lines = normalize_empty_lines(context_lines)
-    -- Remove trailing empty lines
-    while #context_lines > 0 and context_lines[#context_lines] == "" do
-      table.remove(context_lines)
+  for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
+    -- Check section headers
+    if line:match("^Context / Why$") then
+      save_section()
+      current_section = "context"
+      current_subsection = nil
+      section_lines = {}
+    elseif line:match("^%[.%]%s+Completed$") then
+      jd.completed = line:match("^%[x%]") ~= nil or line:match("^%[X%]") ~= nil
+    elseif line:match("^Outcome / Definition of Done$") then
+      save_section()
+      current_section = "outcome"
+      current_subsection = nil
+      section_lines = {}
+    elseif line:match("^Scope$") then
+      save_section()
+      current_section = "scope"
+      current_subsection = nil
+      section_lines = {}
+    elseif line:match("^Requirements / Constraints$") then
+      save_section()
+      current_section = "requirements"
+      current_subsection = nil
+      section_lines = {}
+    elseif line:match("^Dependencies$") then
+      save_section()
+      current_section = "dependencies"
+      current_subsection = nil
+      section_lines = {}
+    elseif line:match("^Approach") then
+      save_section()
+      current_section = "approach"
+      current_subsection = nil
+      section_lines = {}
+    elseif line:match("^Risks$") then
+      save_section()
+      current_section = "risks"
+      current_subsection = nil
+      section_lines = {}
+    elseif line:match("^Validation / Test Plan$") then
+      save_section()
+      current_section = "validation"
+      current_subsection = nil
+      section_lines = {}
+
+    -- Scope subsections
+    elseif current_section == "scope" and line:match("^%s+In scope:") then
+      current_subsection = "in"
+      section_lines = {}
+    elseif current_section == "scope" and line:match("^%s+Out of scope:") then
+      save_section()
+      current_subsection = "out"
+      section_lines = {}
+
+    -- Content capture
+    elseif current_section == "context" then
+      capture_freeform_line(line, section_lines)
+    elseif current_section == "scope" and current_subsection then
+      capture_indented_line(line, section_lines, 4)
+    elseif current_section then
+      capture_indented_line(line, section_lines, 2)
     end
-    -- Remove leading empty lines
-    while #context_lines > 0 and context_lines[1] == "" do
-      table.remove(context_lines, 1)
-    end
-    jd.context_why = vim.trim(table.concat(context_lines, "\n"))
   end
+
+  -- Save final section
+  save_section()
 
   return models.JobDetails.new(jd)
 end
@@ -831,83 +487,15 @@ local function component_details_to_text(component_details)
   local lines = {}
   local cd = component_details or models.ComponentDetails.new()
 
-  -- Purpose / What It Is section
-  table.insert(lines, "Purpose / What It Is")
-  if cd.purpose and cd.purpose ~= "" then
-    table.insert(lines, cd.purpose)
-  else
-    table.insert(lines, "")
-  end
-  table.insert(lines, "")
+  format_plain_section(lines, "Purpose / What It Is", cd.purpose)
+  format_section(lines, "Capabilities / Features", cd.capabilities)
+  format_section(lines, "Acceptance Criteria", cd.acceptance_criteria)
+  format_section(lines, "Architecture / Design", cd.architecture_design)
+  format_section(lines, "Interfaces / Integration Points", cd.interfaces_integration)
+  format_section(lines, "Quality Attributes", cd.quality_attributes)
+  format_section(lines, "Related Components", cd.related_components)
 
-  -- Capabilities / Features section
-  table.insert(lines, "Capabilities / Features")
-  if cd.capabilities and cd.capabilities ~= "" then
-    -- Output text as-is, just add indentation (preserving empty lines)
-    for _, line in ipairs(split_lines(cd.capabilities)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Acceptance Criteria section
-  table.insert(lines, "Acceptance Criteria")
-  if cd.acceptance_criteria and cd.acceptance_criteria ~= "" then
-    for _, line in ipairs(split_lines(cd.acceptance_criteria)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Architecture / Design section
-  table.insert(lines, "Architecture / Design")
-  if cd.architecture_design and cd.architecture_design ~= "" then
-    for _, line in ipairs(split_lines(cd.architecture_design)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Interfaces / Integration Points section
-  table.insert(lines, "Interfaces / Integration Points")
-  if cd.interfaces_integration and cd.interfaces_integration ~= "" then
-    for _, line in ipairs(split_lines(cd.interfaces_integration)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Quality Attributes section
-  table.insert(lines, "Quality Attributes")
-  if cd.quality_attributes and cd.quality_attributes ~= "" then
-    for _, line in ipairs(split_lines(cd.quality_attributes)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Related Components section
-  table.insert(lines, "Related Components")
-  if cd.related_components and cd.related_components ~= "" then
-    for _, line in ipairs(split_lines(cd.related_components)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Other section
+  -- Other section (plain, no trailing newline)
   table.insert(lines, "Other")
   if cd.other and cd.other ~= "" then
     table.insert(lines, cd.other)
@@ -932,204 +520,74 @@ local function text_to_component_details(text)
   }
 
   local current_section = nil
-  local purpose_lines = {}
-  local other_lines = {}
-  local section_lines = {}  -- For capturing free-form sections
+  local section_lines = {}
 
-  -- Add newline to ensure last line is captured, then match lines
+  -- Map sections to their field names
+  local section_fields = {
+    purpose = "purpose",
+    capabilities = "capabilities",
+    acceptance_criteria = "acceptance_criteria",
+    architecture = "architecture_design",
+    interfaces = "interfaces_integration",
+    quality_attributes = "quality_attributes",
+    related_components = "related_components",
+    other = "other",
+  }
+
+  -- Plain sections (no indentation)
+  local plain_sections = { purpose = true, other = true }
+
+  local function save_section()
+    if not current_section or #section_lines == 0 then return end
+    local field = section_fields[current_section]
+    if field then
+      cd[field] = finalize_section(section_lines)
+    end
+  end
+
   for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
-    -- Check section headers
     if line:match("^Purpose / What It Is$") then
+      save_section()
       current_section = "purpose"
-      purpose_lines = {}
+      section_lines = {}
     elseif line:match("^Capabilities / Features$") then
-      -- Save purpose before switching
-      if current_section == "purpose" and #purpose_lines > 0 then
-        purpose_lines = normalize_empty_lines(purpose_lines)
-        while #purpose_lines > 0 and purpose_lines[#purpose_lines] == "" do
-          table.remove(purpose_lines)
-        end
-        while #purpose_lines > 0 and purpose_lines[1] == "" do
-          table.remove(purpose_lines, 1)
-        end
-        cd.purpose = table.concat(purpose_lines, "\n")
-      end
+      save_section()
       current_section = "capabilities"
       section_lines = {}
     elseif line:match("^Acceptance Criteria$") then
-      -- Save previous section
-      if current_section == "capabilities" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        cd.capabilities = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "acceptance_criteria"
       section_lines = {}
     elseif line:match("^Architecture / Design$") then
-      -- Save previous section
-      if current_section == "acceptance_criteria" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        cd.acceptance_criteria = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "architecture"
       section_lines = {}
     elseif line:match("^Interfaces / Integration Points$") then
-      -- Save previous section
-      if current_section == "architecture" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        cd.architecture_design = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "interfaces"
       section_lines = {}
     elseif line:match("^Quality Attributes$") then
-      -- Save previous section
-      if current_section == "interfaces" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        cd.interfaces_integration = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "quality_attributes"
       section_lines = {}
     elseif line:match("^Related Components$") then
-      -- Save previous section
-      if current_section == "quality_attributes" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        cd.quality_attributes = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "related_components"
       section_lines = {}
     elseif line:match("^Other$") then
-      -- Save previous section
-      if current_section == "related_components" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        cd.related_components = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "other"
-      other_lines = {}
-
-    -- Purpose section content (capture everything until next section)
-    elseif current_section == "purpose" then
-      -- Skip leading empty lines, but preserve internal ones
-      if line ~= "" then
-        table.insert(purpose_lines, line)
-      elseif #purpose_lines > 0 then
-        table.insert(purpose_lines, "")
-      end
-
-    -- Section content - capture text, preserving content-level indentation
-    elseif (current_section == "capabilities" or current_section == "acceptance_criteria" or
-            current_section == "architecture" or current_section == "interfaces" or
-            current_section == "quality_attributes" or current_section == "related_components") then
-      -- Handle empty lines (preserve for paragraph breaks)
-      if line == "" then
-        if #section_lines > 0 then
-          table.insert(section_lines, "")
-        end
-      -- Lines with 2+ spaces: strip exactly 2 spaces (section indent), preserve rest
-      elseif line:match("^  ") then
-        local content = line:sub(3)  -- Remove first 2 spaces only
-        table.insert(section_lines, content)
-      -- Lines with other whitespace (1 space, tab, etc): strip all leading whitespace
-      elseif line:match("^%s+") then
-        local content = line:match("^%s+(.*)$")
-        if content and content ~= "" then
-          table.insert(section_lines, content)
-        end
-      -- Lines without leading whitespace: capture as-is (user typed without indent)
+      section_lines = {}
+    elseif current_section then
+      if plain_sections[current_section] then
+        capture_freeform_line(line, section_lines)
       else
-        table.insert(section_lines, line)
-      end
-
-    -- Other section content (capture everything)
-    elseif current_section == "other" then
-      -- Skip leading empty lines, but preserve internal ones
-      if line ~= "" then
-        table.insert(other_lines, line)
-      elseif #other_lines > 0 then
-        table.insert(other_lines, "")
+        capture_indented_line(line, section_lines, 2)
       end
     end
   end
 
-  -- Handle final sections
-  if current_section == "purpose" and #purpose_lines > 0 then
-    purpose_lines = normalize_empty_lines(purpose_lines)
-    while #purpose_lines > 0 and purpose_lines[#purpose_lines] == "" do
-      table.remove(purpose_lines)
-    end
-    while #purpose_lines > 0 and purpose_lines[1] == "" do
-      table.remove(purpose_lines, 1)
-    end
-    cd.purpose = vim.trim(table.concat(purpose_lines, "\n"))
-  elseif (current_section == "capabilities" or current_section == "acceptance_criteria" or
-          current_section == "architecture" or current_section == "interfaces" or
-          current_section == "quality_attributes" or current_section == "related_components") and #section_lines > 0 then
-    section_lines = normalize_empty_lines(section_lines)
-    while #section_lines > 0 and section_lines[#section_lines] == "" do
-      table.remove(section_lines)
-    end
-    while #section_lines > 0 and section_lines[1] == "" do
-      table.remove(section_lines, 1)
-    end
-    local content = table.concat(section_lines, "\n")
-    if current_section == "capabilities" then
-      cd.capabilities = content
-    elseif current_section == "acceptance_criteria" then
-      cd.acceptance_criteria = content
-    elseif current_section == "architecture" then
-      cd.architecture_design = content
-    elseif current_section == "interfaces" then
-      cd.interfaces_integration = content
-    elseif current_section == "quality_attributes" then
-      cd.quality_attributes = content
-    elseif current_section == "related_components" then
-      cd.related_components = content
-    end
-  elseif current_section == "other" and #other_lines > 0 then
-    other_lines = normalize_empty_lines(other_lines)
-    while #other_lines > 0 and other_lines[#other_lines] == "" do
-      table.remove(other_lines)
-    end
-    while #other_lines > 0 and other_lines[1] == "" do
-      table.remove(other_lines, 1)
-    end
-    cd.other = vim.trim(table.concat(other_lines, "\n"))
-  end
-
+  save_section()
   return models.ComponentDetails.new(cd)
 end
 
@@ -1138,82 +596,15 @@ local function area_details_to_text(area_details)
   local lines = {}
   local ad = area_details or models.AreaDetails.new()
 
-  -- Vision / Purpose section
-  table.insert(lines, "Vision / Purpose")
-  if ad.vision_purpose and ad.vision_purpose ~= "" then
-    table.insert(lines, ad.vision_purpose)
-  else
-    table.insert(lines, "")
-  end
-  table.insert(lines, "")
+  format_plain_section(lines, "Vision / Purpose", ad.vision_purpose)
+  format_section(lines, "Goals / Objectives", ad.goals_objectives)
+  format_section(lines, "Scope / Boundaries", ad.scope_boundaries)
+  format_section(lines, "Key Components", ad.key_components)
+  format_section(lines, "Success Metrics / KPIs", ad.success_metrics)
+  format_section(lines, "Stakeholders", ad.stakeholders)
+  format_section(lines, "Dependencies / Constraints", ad.dependencies_constraints)
 
-  -- Goals / Objectives section
-  table.insert(lines, "Goals / Objectives")
-  if ad.goals_objectives and ad.goals_objectives ~= "" then
-    for _, line in ipairs(split_lines(ad.goals_objectives)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Scope / Boundaries section
-  table.insert(lines, "Scope / Boundaries")
-  if ad.scope_boundaries and ad.scope_boundaries ~= "" then
-    for _, line in ipairs(split_lines(ad.scope_boundaries)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Key Components section
-  table.insert(lines, "Key Components")
-  if ad.key_components and ad.key_components ~= "" then
-    for _, line in ipairs(split_lines(ad.key_components)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Success Metrics / KPIs section
-  table.insert(lines, "Success Metrics / KPIs")
-  if ad.success_metrics and ad.success_metrics ~= "" then
-    for _, line in ipairs(split_lines(ad.success_metrics)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Stakeholders section
-  table.insert(lines, "Stakeholders")
-  if ad.stakeholders and ad.stakeholders ~= "" then
-    for _, line in ipairs(split_lines(ad.stakeholders)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Dependencies / Constraints section
-  table.insert(lines, "Dependencies / Constraints")
-  if ad.dependencies_constraints and ad.dependencies_constraints ~= "" then
-    for _, line in ipairs(split_lines(ad.dependencies_constraints)) do
-      table.insert(lines, "  " .. line)
-    end
-  else
-    table.insert(lines, "  - ")
-  end
-  table.insert(lines, "")
-
-  -- Strategic Context section
+  -- Strategic Context section (plain, no trailing newline)
   table.insert(lines, "Strategic Context")
   if ad.strategic_context and ad.strategic_context ~= "" then
     table.insert(lines, ad.strategic_context)
@@ -1238,203 +629,74 @@ local function text_to_area_details(text)
   }
 
   local current_section = nil
-  local vision_lines = {}
-  local context_lines = {}
-  local section_lines = {}  -- For capturing free-form sections
+  local section_lines = {}
 
-  -- Add newline to ensure last line is captured, then match lines
+  -- Map sections to their field names
+  local section_fields = {
+    vision = "vision_purpose",
+    goals = "goals_objectives",
+    scope = "scope_boundaries",
+    components = "key_components",
+    metrics = "success_metrics",
+    stakeholders = "stakeholders",
+    dependencies = "dependencies_constraints",
+    context = "strategic_context",
+  }
+
+  -- Plain sections (no indentation)
+  local plain_sections = { vision = true, context = true }
+
+  local function save_section()
+    if not current_section or #section_lines == 0 then return end
+    local field = section_fields[current_section]
+    if field then
+      ad[field] = finalize_section(section_lines)
+    end
+  end
+
   for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
-    -- Check section headers
     if line:match("^Vision / Purpose$") then
+      save_section()
       current_section = "vision"
-      vision_lines = {}
+      section_lines = {}
     elseif line:match("^Goals / Objectives$") then
-      -- Save vision before switching
-      if current_section == "vision" and #vision_lines > 0 then
-        vision_lines = normalize_empty_lines(vision_lines)
-        while #vision_lines > 0 and vision_lines[#vision_lines] == "" do
-          table.remove(vision_lines)
-        end
-        while #vision_lines > 0 and vision_lines[1] == "" do
-          table.remove(vision_lines, 1)
-        end
-        ad.vision_purpose = table.concat(vision_lines, "\n")
-      end
+      save_section()
       current_section = "goals"
       section_lines = {}
     elseif line:match("^Scope / Boundaries$") then
-      -- Save previous section
-      if current_section == "goals" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        ad.goals_objectives = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "scope"
       section_lines = {}
     elseif line:match("^Key Components$") then
-      -- Save previous section
-      if current_section == "scope" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        ad.scope_boundaries = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "components"
       section_lines = {}
     elseif line:match("^Success Metrics / KPIs$") then
-      -- Save previous section
-      if current_section == "components" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        ad.key_components = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "metrics"
       section_lines = {}
     elseif line:match("^Stakeholders$") then
-      -- Save previous section
-      if current_section == "metrics" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        ad.success_metrics = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "stakeholders"
       section_lines = {}
     elseif line:match("^Dependencies / Constraints$") then
-      -- Save previous section
-      if current_section == "stakeholders" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        ad.stakeholders = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "dependencies"
       section_lines = {}
     elseif line:match("^Strategic Context$") then
-      -- Save previous section
-      if current_section == "dependencies" and #section_lines > 0 then
-        section_lines = normalize_empty_lines(section_lines)
-        while #section_lines > 0 and section_lines[#section_lines] == "" do
-          table.remove(section_lines)
-        end
-        while #section_lines > 0 and section_lines[1] == "" do
-          table.remove(section_lines, 1)
-        end
-        ad.dependencies_constraints = table.concat(section_lines, "\n")
-      end
+      save_section()
       current_section = "context"
-      context_lines = {}
-
-    -- Vision section content (capture everything until next section)
-    elseif current_section == "vision" then
-      if line ~= "" then
-        table.insert(vision_lines, line)
-      elseif #vision_lines > 0 then
-        table.insert(vision_lines, "")
-      end
-
-    -- Section content - capture text, preserving content-level indentation
-    elseif (current_section == "goals" or current_section == "scope" or
-            current_section == "components" or current_section == "metrics" or
-            current_section == "stakeholders" or current_section == "dependencies") then
-      -- Handle empty lines (preserve for paragraph breaks)
-      if line == "" then
-        if #section_lines > 0 then
-          table.insert(section_lines, "")
-        end
-      -- Lines with 2+ spaces: strip exactly 2 spaces (section indent), preserve rest
-      elseif line:match("^  ") then
-        local content = line:sub(3)  -- Remove first 2 spaces only
-        table.insert(section_lines, content)
-      -- Lines with other whitespace (1 space, tab, etc): strip all leading whitespace
-      elseif line:match("^%s+") then
-        local content = line:match("^%s+(.*)$")
-        if content and content ~= "" then
-          table.insert(section_lines, content)
-        end
-      -- Lines without leading whitespace: capture as-is (user typed without indent)
+      section_lines = {}
+    elseif current_section then
+      if plain_sections[current_section] then
+        capture_freeform_line(line, section_lines)
       else
-        table.insert(section_lines, line)
-      end
-
-    -- Strategic Context section content (capture everything)
-    elseif current_section == "context" then
-      -- Skip leading empty lines, but preserve internal ones
-      if line ~= "" then
-        table.insert(context_lines, line)
-      elseif #context_lines > 0 then
-        table.insert(context_lines, "")
+        capture_indented_line(line, section_lines, 2)
       end
     end
   end
 
-  -- Handle final sections
-  if current_section == "vision" and #vision_lines > 0 then
-    vision_lines = normalize_empty_lines(vision_lines)
-    while #vision_lines > 0 and vision_lines[#vision_lines] == "" do
-      table.remove(vision_lines)
-    end
-    while #vision_lines > 0 and vision_lines[1] == "" do
-      table.remove(vision_lines, 1)
-    end
-    ad.vision_purpose = vim.trim(table.concat(vision_lines, "\n"))
-  elseif (current_section == "goals" or current_section == "scope" or
-          current_section == "components" or current_section == "metrics" or
-          current_section == "stakeholders" or current_section == "dependencies") and #section_lines > 0 then
-    section_lines = normalize_empty_lines(section_lines)
-    while #section_lines > 0 and section_lines[#section_lines] == "" do
-      table.remove(section_lines)
-    end
-    while #section_lines > 0 and section_lines[1] == "" do
-      table.remove(section_lines, 1)
-    end
-    local content = table.concat(section_lines, "\n")
-    if current_section == "goals" then
-      ad.goals_objectives = content
-    elseif current_section == "scope" then
-      ad.scope_boundaries = content
-    elseif current_section == "components" then
-      ad.key_components = content
-    elseif current_section == "metrics" then
-      ad.success_metrics = content
-    elseif current_section == "stakeholders" then
-      ad.stakeholders = content
-    elseif current_section == "dependencies" then
-      ad.dependencies_constraints = content
-    end
-  elseif current_section == "context" and #context_lines > 0 then
-    context_lines = normalize_empty_lines(context_lines)
-    while #context_lines > 0 and context_lines[#context_lines] == "" do
-      table.remove(context_lines)
-    end
-    while #context_lines > 0 and context_lines[1] == "" do
-      table.remove(context_lines, 1)
-    end
-    ad.strategic_context = vim.trim(table.concat(context_lines, "\n"))
-  end
-
+  save_section()
   return models.AreaDetails.new(ad)
 end
 

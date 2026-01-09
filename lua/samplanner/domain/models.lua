@@ -1,5 +1,16 @@
 local M = {}
 
+-- Helper to migrate a field from array to string format
+-- @param value: any - The value to migrate
+-- @param helpers: table - The array_string_helpers module
+-- @return string - The migrated value
+local function migrate_field(value, helpers)
+  if type(value) == "table" then
+    return helpers.array_to_text(value)
+  end
+  return value or ""
+end
+
 -- ProjectInfo model
 -- JSON: { "id": "ej-1", "name": "Example Json" }
 M.ProjectInfo = {}
@@ -41,15 +52,10 @@ M.Estimation.__index = M.Estimation
 function M.Estimation.new(data)
   data = data or {}
   local self = setmetatable({}, M.Estimation)
-  self.work_type = data.work_type or ""
+  local helpers = require('samplanner.migrations.array_string_helpers')
 
-  -- Handle both old array format and new string format for assumptions
-  if type(data.assumptions) == "table" then
-    local helpers = require('samplanner.migrations.array_string_helpers')
-    self.assumptions = helpers.array_to_text(data.assumptions)
-  else
-    self.assumptions = data.assumptions or ""
-  end
+  self.work_type = data.work_type or ""
+  self.assumptions = migrate_field(data.assumptions, helpers)
 
   self.effort = {
     method = data.effort and data.effort.method or "",
@@ -65,13 +71,11 @@ function M.Estimation.new(data)
     milestones = data.schedule and data.schedule.milestones or {},
   }
 
-  -- Handle both old array format and new string format for post_estimate_notes
-  local helpers = require('samplanner.migrations.array_string_helpers')
   local pen = data.post_estimate_notes or {}
   self.post_estimate_notes = {
-    could_be_smaller = type(pen.could_be_smaller) == "table" and helpers.array_to_text(pen.could_be_smaller) or pen.could_be_smaller or "",
-    could_be_bigger = type(pen.could_be_bigger) == "table" and helpers.array_to_text(pen.could_be_bigger) or pen.could_be_bigger or "",
-    ignored_last_time = type(pen.ignored_last_time) == "table" and helpers.array_to_text(pen.ignored_last_time) or pen.ignored_last_time or "",
+    could_be_smaller = migrate_field(pen.could_be_smaller, helpers),
+    could_be_bigger = migrate_field(pen.could_be_bigger, helpers),
+    ignored_last_time = migrate_field(pen.ignored_last_time, helpers),
   }
   return self
 end
@@ -113,17 +117,14 @@ function M.JobDetails.new(data)
   local helpers = require('samplanner.migrations.array_string_helpers')
 
   self.context_why = data.context_why or ""
-
-  -- Handle both old array format and new string format
-  self.outcome_dod = type(data.outcome_dod) == "table" and helpers.array_to_text(data.outcome_dod) or data.outcome_dod or ""
-  self.scope_in = type(data.scope_in) == "table" and helpers.array_to_text(data.scope_in) or data.scope_in or ""
-  self.scope_out = type(data.scope_out) == "table" and helpers.array_to_text(data.scope_out) or data.scope_out or ""
-  self.requirements_constraints = type(data.requirements_constraints) == "table" and helpers.array_to_text(data.requirements_constraints) or data.requirements_constraints or ""
-  self.dependencies = type(data.dependencies) == "table" and helpers.array_to_text(data.dependencies) or data.dependencies or ""
-  self.approach = type(data.approach) == "table" and helpers.array_to_text(data.approach) or data.approach or ""
-  self.risks = type(data.risks) == "table" and helpers.array_to_text(data.risks) or data.risks or ""
-  self.validation_test_plan = type(data.validation_test_plan) == "table" and helpers.array_to_text(data.validation_test_plan) or data.validation_test_plan or ""
-
+  self.outcome_dod = migrate_field(data.outcome_dod, helpers)
+  self.scope_in = migrate_field(data.scope_in, helpers)
+  self.scope_out = migrate_field(data.scope_out, helpers)
+  self.requirements_constraints = migrate_field(data.requirements_constraints, helpers)
+  self.dependencies = migrate_field(data.dependencies, helpers)
+  self.approach = migrate_field(data.approach, helpers)
+  self.risks = migrate_field(data.risks, helpers)
+  self.validation_test_plan = migrate_field(data.validation_test_plan, helpers)
   self.completed = data.completed or false
   return self
 end
@@ -162,15 +163,12 @@ function M.ComponentDetails.new(data)
   local helpers = require('samplanner.migrations.array_string_helpers')
 
   self.purpose = data.purpose or ""
-
-  -- Handle both old array format and new string format
-  self.capabilities = type(data.capabilities) == "table" and helpers.array_to_text(data.capabilities) or data.capabilities or ""
-  self.acceptance_criteria = type(data.acceptance_criteria) == "table" and helpers.array_to_text(data.acceptance_criteria) or data.acceptance_criteria or ""
-  self.architecture_design = type(data.architecture_design) == "table" and helpers.array_to_text(data.architecture_design) or data.architecture_design or ""
-  self.interfaces_integration = type(data.interfaces_integration) == "table" and helpers.array_to_text(data.interfaces_integration) or data.interfaces_integration or ""
-  self.quality_attributes = type(data.quality_attributes) == "table" and helpers.array_to_text(data.quality_attributes) or data.quality_attributes or ""
-  self.related_components = type(data.related_components) == "table" and helpers.array_to_text(data.related_components) or data.related_components or ""
-
+  self.capabilities = migrate_field(data.capabilities, helpers)
+  self.acceptance_criteria = migrate_field(data.acceptance_criteria, helpers)
+  self.architecture_design = migrate_field(data.architecture_design, helpers)
+  self.interfaces_integration = migrate_field(data.interfaces_integration, helpers)
+  self.quality_attributes = migrate_field(data.quality_attributes, helpers)
+  self.related_components = migrate_field(data.related_components, helpers)
   self.other = data.other or ""
   return self
 end
@@ -207,15 +205,12 @@ function M.AreaDetails.new(data)
   local helpers = require('samplanner.migrations.array_string_helpers')
 
   self.vision_purpose = data.vision_purpose or ""
-
-  -- Handle both old array format and new string format
-  self.goals_objectives = type(data.goals_objectives) == "table" and helpers.array_to_text(data.goals_objectives) or data.goals_objectives or ""
-  self.scope_boundaries = type(data.scope_boundaries) == "table" and helpers.array_to_text(data.scope_boundaries) or data.scope_boundaries or ""
-  self.key_components = type(data.key_components) == "table" and helpers.array_to_text(data.key_components) or data.key_components or ""
-  self.success_metrics = type(data.success_metrics) == "table" and helpers.array_to_text(data.success_metrics) or data.success_metrics or ""
-  self.stakeholders = type(data.stakeholders) == "table" and helpers.array_to_text(data.stakeholders) or data.stakeholders or ""
-  self.dependencies_constraints = type(data.dependencies_constraints) == "table" and helpers.array_to_text(data.dependencies_constraints) or data.dependencies_constraints or ""
-
+  self.goals_objectives = migrate_field(data.goals_objectives, helpers)
+  self.scope_boundaries = migrate_field(data.scope_boundaries, helpers)
+  self.key_components = migrate_field(data.key_components, helpers)
+  self.success_metrics = migrate_field(data.success_metrics, helpers)
+  self.stakeholders = migrate_field(data.stakeholders, helpers)
+  self.dependencies_constraints = migrate_field(data.dependencies_constraints, helpers)
   self.strategic_context = data.strategic_context or ""
   return self
 end
@@ -350,32 +345,21 @@ function M.TimeLog.new(start_timestamp, end_timestamp, notes, interruptions, int
   self.energy_level = energy_level or { start = 0, ["end"] = 0 }
   self.context_switches = context_switches or 0
 
-  -- Handle both old array format and new string format for defects
   local def = defects or {}
-  if type(def) == "table" then
-    self.defects = {
-      found = type(def.found) == "table" and helpers.array_to_text(def.found) or def.found or "",
-      fixed = type(def.fixed) == "table" and helpers.array_to_text(def.fixed) or def.fixed or "",
-    }
-  else
-    self.defects = { found = "", fixed = "" }
-  end
+  self.defects = {
+    found = migrate_field(def.found, helpers),
+    fixed = migrate_field(def.fixed, helpers),
+  }
 
-  -- Handle both old array format and new string format for deliverables and blockers
-  self.deliverables = type(deliverables) == "table" and helpers.array_to_text(deliverables) or deliverables or ""
-  self.blockers = type(blockers) == "table" and helpers.array_to_text(blockers) or blockers or ""
+  self.deliverables = migrate_field(deliverables, helpers)
+  self.blockers = migrate_field(blockers, helpers)
 
-  -- Handle both old array format and new string format for retrospective
   local retro = retrospective or {}
-  if type(retro) == "table" then
-    self.retrospective = {
-      what_went_well = type(retro.what_went_well) == "table" and helpers.array_to_text(retro.what_went_well) or retro.what_went_well or "",
-      what_needs_improvement = type(retro.what_needs_improvement) == "table" and helpers.array_to_text(retro.what_needs_improvement) or retro.what_needs_improvement or "",
-      lessons_learned = type(retro.lessons_learned) == "table" and helpers.array_to_text(retro.lessons_learned) or retro.lessons_learned or "",
-    }
-  else
-    self.retrospective = { what_went_well = "", what_needs_improvement = "", lessons_learned = "" }
-  end
+  self.retrospective = {
+    what_went_well = migrate_field(retro.what_went_well, helpers),
+    what_needs_improvement = migrate_field(retro.what_needs_improvement, helpers),
+    lessons_learned = migrate_field(retro.lessons_learned, helpers),
+  }
 
   return self
 end
@@ -426,131 +410,64 @@ local function get_node_type(structure, task_id)
   return search(structure, task_id)
 end
 
+-- Configuration for details types by node type
+local details_config = {
+  Job = {
+    model_fn = function() return M.JobDetails.new() end,
+    model_with_data = function(data) return M.JobDetails.new(data) end,
+    check_fields = {"context_why", "outcome_dod", "scope_in"},
+  },
+  Component = {
+    model_fn = function() return M.ComponentDetails.new() end,
+    model_with_data = function(data) return M.ComponentDetails.new(data) end,
+    check_fields = {"purpose", "capabilities", "acceptance_criteria"},
+  },
+  Area = {
+    model_fn = function() return M.AreaDetails.new() end,
+    model_with_data = function(data) return M.AreaDetails.new(data) end,
+    check_fields = {"vision_purpose", "goals_objectives", "key_components"},
+  },
+}
+
+-- Helper to prepend migration note
+local function prepend_migration_note(content, notes)
+  local prefix = "Migrated details:\n" .. content
+  if notes ~= "" then
+    return prefix .. "\n\n" .. notes
+  end
+  return prefix
+end
+
 -- Helper function to validate and migrate details based on node type
 local function validate_and_migrate_details(task_data, node_type, notes)
   local details = task_data.details
+  local config = details_config[node_type] or details_config.Area
 
-  -- If node type is Job, details should be a JobDetails structure
-  if node_type == "Job" then
-    -- If details doesn't exist, create empty JobDetails
-    if not details then
-      return M.JobDetails.new(), notes
-    end
-
-    -- If details is a table with proper JobDetails structure, use it
-    if type(details) == "table" then
-      -- Check if it conforms to JobDetails structure
-      local has_job_details_fields = details.context_why ~= nil
-        or details.outcome_dod ~= nil
-        or details.scope_in ~= nil
-
-      if has_job_details_fields then
-        return M.JobDetails.new(details), notes
-      else
-        -- Table but not conforming structure - migrate to notes
-        local detail_str = vim.inspect(details)
-        if notes ~= "" then
-          notes = "Migrated details:\n" .. detail_str .. "\n\n" .. notes
-        else
-          notes = "Migrated details:\n" .. detail_str
-        end
-        return M.JobDetails.new(), notes
-      end
-    end
-
-    -- If details is a string (old format), migrate to notes
-    if type(details) == "string" and details ~= "" then
-      if notes ~= "" then
-        notes = "Migrated details:\n" .. details .. "\n\n" .. notes
-      else
-        notes = "Migrated details:\n" .. details
-      end
-      return M.JobDetails.new(), notes
-    end
-
-    -- Default: empty JobDetails
-    return M.JobDetails.new(), notes
-  elseif node_type == "Component" then
-    -- If node type is Component, details should be a ComponentDetails structure
-    -- If details doesn't exist, create empty ComponentDetails
-    if not details then
-      return M.ComponentDetails.new(), notes
-    end
-
-    -- If details is a table with proper ComponentDetails structure, use it
-    if type(details) == "table" then
-      -- Check if it conforms to ComponentDetails structure
-      local has_component_details_fields = details.purpose ~= nil
-        or details.capabilities ~= nil
-        or details.acceptance_criteria ~= nil
-
-      if has_component_details_fields then
-        return M.ComponentDetails.new(details), notes
-      else
-        -- Table but not conforming structure - migrate to notes
-        local detail_str = vim.inspect(details)
-        if notes ~= "" then
-          notes = "Migrated details:\n" .. detail_str .. "\n\n" .. notes
-        else
-          notes = "Migrated details:\n" .. detail_str
-        end
-        return M.ComponentDetails.new(), notes
-      end
-    end
-
-    -- If details is a string (old format), migrate to notes
-    if type(details) == "string" and details ~= "" then
-      if notes ~= "" then
-        notes = "Migrated details:\n" .. details .. "\n\n" .. notes
-      else
-        notes = "Migrated details:\n" .. details
-      end
-      return M.ComponentDetails.new(), notes
-    end
-
-    -- Default: empty ComponentDetails
-    return M.ComponentDetails.new(), notes
-  else
-    -- For Area, details should be an AreaDetails structure
-    -- If details doesn't exist, create empty AreaDetails
-    if not details then
-      return M.AreaDetails.new(), notes
-    end
-
-    -- If details is a table with proper AreaDetails structure, use it
-    if type(details) == "table" then
-      -- Check if it conforms to AreaDetails structure
-      local has_area_details_fields = details.vision_purpose ~= nil
-        or details.goals_objectives ~= nil
-        or details.key_components ~= nil
-
-      if has_area_details_fields then
-        return M.AreaDetails.new(details), notes
-      else
-        -- Table but not conforming structure - migrate to notes
-        local detail_str = vim.inspect(details)
-        if notes ~= "" then
-          notes = "Migrated details:\n" .. detail_str .. "\n\n" .. notes
-        else
-          notes = "Migrated details:\n" .. detail_str
-        end
-        return M.AreaDetails.new(), notes
-      end
-    end
-
-    -- If details is a string (old format), migrate to notes
-    if type(details) == "string" and details ~= "" then
-      if notes ~= "" then
-        notes = "Migrated details:\n" .. details .. "\n\n" .. notes
-      else
-        notes = "Migrated details:\n" .. details
-      end
-      return M.AreaDetails.new(), notes
-    end
-
-    -- Default: empty AreaDetails
-    return M.AreaDetails.new(), notes
+  -- If details doesn't exist, create empty details
+  if not details then
+    return config.model_fn(), notes
   end
+
+  -- If details is a table, check if it conforms to expected structure
+  if type(details) == "table" then
+    for _, field in ipairs(config.check_fields) do
+      if details[field] ~= nil then
+        return config.model_with_data(details), notes
+      end
+    end
+    -- Table but not conforming structure - migrate to notes
+    notes = prepend_migration_note(vim.inspect(details), notes)
+    return config.model_fn(), notes
+  end
+
+  -- If details is a string (old format), migrate to notes
+  if type(details) == "string" and details ~= "" then
+    notes = prepend_migration_note(details, notes)
+    return config.model_fn(), notes
+  end
+
+  -- Default: empty details
+  return config.model_fn(), notes
 end
 
 -- Helper function to create Project from JSON-like table

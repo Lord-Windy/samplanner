@@ -1,7 +1,12 @@
 -- Session text format conversion
 local models = require('samplanner.domain.models')
+local parsing = require('samplanner.utils.parsing')
 
 local M = {}
+
+-- Local aliases
+local split_lines = parsing.split_lines
+local finalize_section = parsing.finalize_section
 
 -- Format ISO timestamp to human-readable format
 -- @param timestamp: string - ISO format timestamp (e.g., "2024-01-15T09:00:00Z")

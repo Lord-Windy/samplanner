@@ -15,8 +15,8 @@ if [ ! -d "$DEPS_DIR/dkjson" ]; then
   echo ""
 fi
 
-# Set up Lua paths
-export LUA_PATH="$PROJECT_ROOT/lua/?.lua;$PROJECT_ROOT/lua/?/init.lua;;"
+# Set up Lua paths (include helpers for mini_test)
+export LUA_PATH="$PROJECT_ROOT/lua/?.lua;$PROJECT_ROOT/lua/?/init.lua;$PROJECT_ROOT/tests/helpers/?.lua;;"
 
 cd "$PROJECT_ROOT"
 
@@ -27,7 +27,7 @@ echo ""
 for test_file in tests/unit/*_spec.lua; do
   if [ -f "$test_file" ]; then
     echo "Running $(basename $test_file)..."
-    luajit "$test_file"
+    luajit -e "require('mini_test')" "$test_file"
     echo "✓ Passed"
     echo ""
   fi
@@ -37,7 +37,7 @@ done
 for test_file in tests/integration/*_spec.lua; do
   if [ -f "$test_file" ]; then
     echo "Running $(basename $test_file)..."
-    luajit "$test_file"
+    luajit -e "require('mini_test')" "$test_file"
     echo "✓ Passed"
     echo ""
   fi
