@@ -87,6 +87,7 @@ local function build_tree_lines(project)
         Area = "A",
         Component = "C",
         Job = "J",
+        Freeform = "F",
       }
       local type_icon = type_icons[node.type] or "?"
 
