@@ -243,7 +243,7 @@ end
 function M.add_child()
   local parent_id = M.get_node_at_cursor()
 
-  vim.ui.select({ "Area", "Component", "Job" }, {
+  vim.ui.select({ "Area", "Component", "Job", "Freeform" }, {
     prompt = "Select node type:",
   }, function(node_type)
     if not node_type then return end
@@ -280,7 +280,7 @@ function M.add_sibling()
   -- Get parent ID
   local parent_id = current_id:match("^(.+)%.%d+$")
 
-  vim.ui.select({ "Area", "Component", "Job" }, {
+  vim.ui.select({ "Area", "Component", "Job", "Freeform" }, {
     prompt = "Select node type:",
   }, function(node_type)
     if not node_type then return end
