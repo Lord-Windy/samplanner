@@ -668,6 +668,83 @@ local function text_to_area_details(text)
   return models.AreaDetails.new(ad)
 end
 
+-- Convert FreeformDetails to Markdown format (completely freeform, no predefined structure)
+local function freeform_details_to_text(freeform_details)
+  local lines = {}
+  local fd = freeform_details or models.FreeformDetails.new()
+
+  -- Output raw content directly (no predefined H3 subsections)
+  if fd.content and fd.content ~= "" then
+    for _, line in ipairs(split_lines(fd.content)) do
+      table.insert(lines, line)
+    end
+    table.insert(lines, "")
+  end
+
+  -- Still support custom H3 sections if user adds them
+  if fd.custom and next(fd.custom) then
+    for key, value in pairs(fd.custom) do
+      if value and value ~= "" then
+        table.insert(lines, "### " .. key_to_header(key))
+        table.insert(lines, "")
+        table.insert(lines, value)
+        table.insert(lines, "")
+      end
+    end
+  end
+
+  return table.concat(lines, "\n")
+end
+
+-- Parse FreeformDetails from Markdown text
+local function text_to_freeform_details(text)
+  local fd = {
+    content = "",
+    custom = {},
+  }
+
+  local current_section = "content"  -- Start capturing in content (before any H3)
+  local current_custom_key = nil
+  local content_lines = {}
+  local custom_section_lines = {}
+
+  local function save_custom_section()
+    if current_custom_key and #custom_section_lines > 0 then
+      local c = finalize_section(custom_section_lines)
+      if c ~= "" then
+        fd.custom[current_custom_key] = c
+      end
+      current_custom_key = nil
+      custom_section_lines = {}
+    end
+  end
+
+  for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
+    local is_h3, h3_title = is_h3_header(line)
+
+    if is_h3 then
+      -- Save previous custom section if any
+      save_custom_section()
+      -- Switch to custom section mode
+      current_section = "custom"
+      current_custom_key = normalize_header_to_key(h3_title)
+    elseif current_section == "custom" and current_custom_key then
+      capture_freeform_line(line, custom_section_lines)
+    elseif current_section == "content" then
+      -- Capture everything before first H3 as content
+      capture_freeform_line(line, content_lines)
+    end
+  end
+
+  -- Save final custom section
+  save_custom_section()
+
+  -- Finalize content
+  fd.content = finalize_section(content_lines)
+
+  return models.FreeformDetails.new(fd)
+end
+
 -- Convert Task to editable Markdown format
 -- @param task: Task - The task to convert
 -- @param node_type: string|nil - "Area", "Component", or "Job" (nil shows no estimation)
@@ -697,6 +774,12 @@ function M.task_to_text(task, node_type)
   elseif node_type == "Area" then
     if type(task.details) == "table" then
       table.insert(lines, area_details_to_text(task.details))
+    elseif task.details and task.details ~= "" then
+      table.insert(lines, task.details)
+    end
+  elseif node_type == "Freeform" then
+    if type(task.details) == "table" then
+      table.insert(lines, freeform_details_to_text(task.details))
     elseif task.details and task.details ~= "" then
       table.insert(lines, task.details)
     end
@@ -781,6 +864,8 @@ function M.text_to_task(text, node_type)
         details = text_to_component_details(content)
       elseif node_type == "Area" then
         details = text_to_area_details(content)
+      elseif node_type == "Freeform" then
+        details = text_to_freeform_details(content)
       else
         details = vim.trim(content)
       end

@@ -230,6 +230,28 @@ function M.AreaDetails:is_empty()
     and self.strategic_context == ""
 end
 
+-- FreeformDetails model (completely freeform content, no predefined structure)
+-- JSON: {
+--   "content": "any freeform text here",
+--   "custom": { "section_name": "content" }
+-- }
+M.FreeformDetails = {}
+M.FreeformDetails.__index = M.FreeformDetails
+
+function M.FreeformDetails.new(data)
+  data = data or {}
+  local self = setmetatable({}, M.FreeformDetails)
+  self.content = data.content or ""
+  self.custom = data.custom or {}
+  return self
+end
+
+-- Check if freeform details has any meaningful data
+function M.FreeformDetails:is_empty()
+  return self.content == ""
+    and (not self.custom or not next(self.custom))
+end
+
 -- Task model
 -- JSON: {
 --   "name": "name",
@@ -245,12 +267,14 @@ function M.Task.new(id, name, details, estimation, tags, notes, custom)
   local self = setmetatable({}, M.Task)
   self.id = id or ""
   self.name = name or ""
-  -- details can be AreaDetails (for Area) or JobDetails (for Job) or ComponentDetails (for Component)
+  -- details can be AreaDetails (for Area) or JobDetails (for Job) or ComponentDetails (for Component) or FreeformDetails (for Freeform)
   if details and type(details) == "table" and getmetatable(details) == M.JobDetails then
     self.details = details
   elseif details and type(details) == "table" and getmetatable(details) == M.ComponentDetails then
     self.details = details
   elseif details and type(details) == "table" and getmetatable(details) == M.AreaDetails then
+    self.details = details
+  elseif details and type(details) == "table" and getmetatable(details) == M.FreeformDetails then
     self.details = details
   elseif details and type(details) == "table" then
     -- Try to determine which type of details this should be
@@ -260,6 +284,8 @@ function M.Task.new(id, name, details, estimation, tags, notes, custom)
     local has_component_fields = details.purpose ~= nil or details.capabilities ~= nil or details.acceptance_criteria ~= nil
     -- Check for AreaDetails fields
     local has_area_fields = details.vision_purpose ~= nil or details.goals_objectives ~= nil or details.key_components ~= nil
+    -- Check for FreeformDetails fields (content field with no other structured fields)
+    local has_freeform_fields = details.content ~= nil and not has_job_fields and not has_component_fields and not has_area_fields
 
     if has_job_fields then
       self.details = M.JobDetails.new(details)
@@ -267,6 +293,8 @@ function M.Task.new(id, name, details, estimation, tags, notes, custom)
       self.details = M.ComponentDetails.new(details)
     elseif has_area_fields then
       self.details = M.AreaDetails.new(details)
+    elseif has_freeform_fields then
+      self.details = M.FreeformDetails.new(details)
     else
       self.details = details or ""
     end
@@ -430,6 +458,11 @@ local details_config = {
     model_fn = function() return M.AreaDetails.new() end,
     model_with_data = function(data) return M.AreaDetails.new(data) end,
     check_fields = {"vision_purpose", "goals_objectives", "key_components"},
+  },
+  Freeform = {
+    model_fn = function() return M.FreeformDetails.new() end,
+    model_with_data = function(data) return M.FreeformDetails.new(data) end,
+    check_fields = {"content"},
   },
 }
 

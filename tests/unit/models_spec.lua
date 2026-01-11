@@ -661,3 +661,42 @@ describe("ComponentDetails", function()
     assert.is_false(cd2:is_empty())
   end)
 end)
+
+describe("FreeformDetails", function()
+  it("should create a new FreeformDetails instance", function()
+    local fd = models.FreeformDetails.new({
+      content = "This is freeform content",
+      custom = { my_section = "Custom section content" }
+    })
+    assert.are.equal("This is freeform content", fd.content)
+    assert.are.same({ my_section = "Custom section content" }, fd.custom)
+  end)
+
+  it("should use defaults for missing parameters", function()
+    local fd = models.FreeformDetails.new()
+    assert.are.equal("", fd.content)
+    assert.are.same({}, fd.custom)
+  end)
+
+  it("should detect empty freeform details", function()
+    local fd = models.FreeformDetails.new()
+    assert.is_true(fd:is_empty())
+
+    local fd2 = models.FreeformDetails.new({ content = "Not empty" })
+    assert.is_false(fd2:is_empty())
+  end)
+
+  it("should not be empty when custom sections exist", function()
+    local fd = models.FreeformDetails.new({
+      custom = { some_section = "Content here" }
+    })
+    assert.is_false(fd:is_empty())
+  end)
+
+  it("should handle content with newlines", function()
+    local fd = models.FreeformDetails.new({
+      content = "Line 1\nLine 2\nLine 3"
+    })
+    assert.are.equal("Line 1\nLine 2\nLine 3", fd.content)
+  end)
+end)
